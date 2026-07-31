@@ -71,7 +71,9 @@ export async function POST(request: Request) {
 
       const workbook = new ExcelJS.Workbook();
       const workbookBuffer = Buffer.from(await downloaded.data.arrayBuffer());
-      await workbook.xlsx.load(workbookBuffer);
+      await workbook.xlsx.load(
+  workbookBuffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
+);
 
       const sheet = workbook.getWorksheet("Generated Documents") || workbook.addWorksheet("Generated Documents");
       if (sheet.rowCount === 0 || !sheet.getCell("A1").value) {
