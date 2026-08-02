@@ -18,6 +18,8 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const LOG_COLUMNS = 19;
+
 const requestSchema = z.object({
   requestId: z.string().uuid(),
   reference: z.string().min(1).max(150),
@@ -88,6 +90,38 @@ export async function POST(request: Request) {
     const confirmation = indiaDateTime();
     const confirmationSerial = dateToGoogleSerial(confirmation.date);
     const requests: Record<string, unknown>[] = [];
+
+    // Older _SYSTEM_LOG sheets were originally created with only A:K.
+    // Return and void audit fields use columns L:S, so expand the hidden
+    // sheet before any updateCells request references those columns.
+    if (log) {
+      const currentColumnCount = log.gridProperties?.columnCount || 0;
+      if (currentColumnCount < LOG_COLUMNS) {
+        requests.push({
+          appendDimension: {
+            sheetId: log.sheetId,
+            dimension: "COLUMNS",
+            length: LOG_COLUMNS - currentColumnCount,
+          },
+        });
+      }
+
+      const expectedReturnHeader = "RETURN STATUS";
+      if (String(logRows[0]?.[11] || "").trim().toUpperCase() !== expectedReturnHeader) {
+        requests.push(
+          updateRangeRequest(log.sheetId, 1, 11, [[
+            "RETURN STATUS",
+            "RETURNED AT",
+            "CONFIRM PERSON",
+            "RETURN REQUEST ID",
+            "VOID STATUS",
+            "VOIDED AT",
+            "VOID REASON",
+            "VOID REQUEST ID",
+          ]]),
+        );
+      }
+    }
 
     for (const group of groupContiguousRows(target.sheet1Rows)) {
       const count = group.end - group.start + 1;
