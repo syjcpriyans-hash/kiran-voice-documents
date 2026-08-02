@@ -5,22 +5,38 @@ import { useState } from "react";
 import { ApprovalNoteEditor } from "@/components/ApprovalNoteEditor";
 import { VoiceCapture } from "@/components/VoiceCapture";
 import { WorkbookUpload } from "@/components/WorkbookUpload";
-import { demoDraft } from "@/lib/demo-data";
 import type { ApprovalDraft, InterpretedDraft } from "@/lib/types";
 
+function getLocalDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function Home() {
-  const [draft, setDraft] = useState<ApprovalDraft>(demoDraft);
+  const [draft, setDraft] = useState<ApprovalDraft | null>(null);
   const [interpretationMessage, setInterpretationMessage] = useState("");
 
   async function interpret(text: string) {
+    setInterpretationMessage("");
+
     const response = await fetch("/api/interpret", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ transcript: text }),
     });
 
-    const data = (await response.json()) as { mode?: "demo" | "ai"; draft?: InterpretedDraft; error?: string };
-    if (!response.ok || !data.draft) throw new Error(data.error || "The instruction could not be interpreted.");
+    const data = (await response.json()) as {
+      mode?: "demo" | "ai";
+      draft?: InterpretedDraft;
+      error?: string;
+    };
+
+    if (!response.ok || !data.draft) {
+      throw new Error(data.error || "The instruction could not be interpreted.");
+    }
 
     const interpretedItems = data.draft.items.map((item) => ({
       id: crypto.randomUUID(),
@@ -31,19 +47,18 @@ export default function Home() {
       remarks: item.remarks ?? "",
     }));
 
-    setDraft((current) => ({
-      ...current,
-      recipientName: data.draft!.recipientName || current.recipientName,
-      recipientType: data.draft!.recipientType || current.recipientType,
-      through: data.draft!.through ?? current.through,
-      date: data.draft!.date || current.date,
-      items: interpretedItems.length ? interpretedItems : current.items,
-    }));
+    setDraft({
+      recipientName: data.draft.recipientName || "",
+      recipientType: data.draft.recipientType || "Other",
+      through: data.draft.through || "",
+      date: data.draft.date || getLocalDate(),
+      items: interpretedItems,
+    });
 
     setInterpretationMessage(
       data.mode === "demo"
-        ? "The limited demo parser was used. Supabase and AI keys will be connected in the next setup stages."
-        : "The spoken instruction was converted into structured document fields. Please verify every number before generation.",
+        ? "The limited demo parser was used. Please verify every field before generation."
+        : "The instruction was converted into document fields. Please verify every name, description, carat and price before generation.",
     );
   }
 
@@ -68,7 +83,8 @@ export default function Home() {
             <div className="eyebrow">MVP foundation</div>
             <h1>Speak the request. Pull workbook data. Generate the same document.</h1>
             <p className="lead">
-              The Excel workbook becomes the product-data source. Names are captured from speech for each document. Supabase safely records the transaction and the workbook receives the same serial reference.
+              The Excel workbook becomes the product-data source. Names are captured from speech for each document.
+              Supabase safely records the transaction and the workbook receives the same serial reference.
             </p>
             <div className="status-row">
               <span className="pill"><FileSpreadsheet size={15} /> Excel import</span>
@@ -80,7 +96,10 @@ export default function Home() {
           </div>
           <div className="constraint-card">
             <strong>Exact format is temporarily approximated</strong>
-            <p>A flat blank scan or original digital template will later replace the photographed reference and lock every coordinate precisely.</p>
+            <p>
+              A flat blank scan or original digital template will later replace the photographed reference
+              and lock every coordinate precisely.
+            </p>
           </div>
         </section>
 
@@ -97,17 +116,33 @@ export default function Home() {
             <div className="eyebrow">Voice request</div>
             <h2>Speak the approval note</h2>
             <VoiceCapture onInterpret={interpret} />
-            {interpretationMessage && <div className="notice warning top-gap">{interpretationMessage}</div>}
+            {interpretationMessage && (
+              <div className="notice success top-gap">{interpretationMessage}</div>
+            )}
           </article>
         </section>
 
-        <section className="panel document-section">
-          <div className="step-number">3</div>
-          <div className="eyebrow">Validation and generation</div>
-          <h2>Review before recording</h2>
-          <p className="muted section-intro">Nothing should be finalized until the recipient, descriptions, carats and prices have been checked.</p>
-          <ApprovalNoteEditor draft={draft} onChange={setDraft} />
-        </section>
+        {draft ? (
+          <section className="panel document-section">
+            <div className="step-number">3</div>
+            <div className="eyebrow">Validation and generation</div>
+            <h2>Review before recording</h2>
+            <p className="muted section-intro">
+              Nothing should be finalized until the recipient, descriptions, carats and prices have been checked.
+            </p>
+            <ApprovalNoteEditor draft={draft} onChange={setDraft} />
+          </section>
+        ) : (
+          <section className="panel document-section">
+            <div className="step-number">3</div>
+            <div className="eyebrow">Validation and generation</div>
+            <h2>Memorandum preview</h2>
+            <p className="muted section-intro">
+              No memorandum has been created yet. Upload the workbook, then speak or type the approval-note
+              instruction. The preview and product rows will appear here only after the instruction is interpreted.
+            </p>
+          </section>
+        )}
       </div>
     </main>
   );
