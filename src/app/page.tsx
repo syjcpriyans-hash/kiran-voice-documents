@@ -290,7 +290,6 @@ export default function Home() {
             <span>Mark returned</span>
           </button>
 
-          <div className="sidebar-divider" />
 
           <button
             type="button"
@@ -310,7 +309,6 @@ export default function Home() {
             <span>Void / Correct</span>
           </button>
 
-          <div className="sidebar-divider" />
 
           <a
             href="/how-it-works"

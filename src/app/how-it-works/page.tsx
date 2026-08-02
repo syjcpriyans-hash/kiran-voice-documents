@@ -42,13 +42,6 @@ export default function HowItWorksPage() {
           Back to Kiran Assistant
         </a>
 
-        <div className="help-brand">
-          <img src="/kiran-logo.png" alt="Kiran" />
-          <div>
-            <strong>Kiran AI Memorandum Assistant</strong>
-            <span>User guide</span>
-          </div>
-        </div>
       </header>
 
       <section className="help-hero">

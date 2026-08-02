@@ -2138,3 +2138,17 @@ textarea,
     display: none !important;
   }
 }
+
+
+/* V6 cleanup: no sidebar separator rules and no guide-page top-right branding */
+.sidebar-divider {
+  display: none !important;
+}
+
+.help-header {
+  justify-content: flex-start !important;
+}
+
+.help-brand {
+  display: none !important;
+}
