@@ -1,13 +1,13 @@
 "use client";
 
-import { Database, FileCheck2, FileSpreadsheet, Mic2, ShieldCheck } from "lucide-react";
+import { FileCheck2, FileSpreadsheet, Mic2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { ApprovalNoteEditor } from "@/components/ApprovalNoteEditor";
+import { GoogleSheetStatus } from "@/components/GoogleSheetStatus";
 import {
   VoiceCapture,
   type AudioInterpretationResult,
 } from "@/components/VoiceCapture";
-import { WorkbookUpload } from "@/components/WorkbookUpload";
 import type { ApprovalDraft, InterpretedDraft } from "@/lib/types";
 
 function getLocalDate(): string {
@@ -57,12 +57,14 @@ export default function Home() {
     };
 
     if (!response.ok || !data.draft) {
-      throw new Error(data.error || "The instruction could not be interpreted.");
+      throw new Error(
+        data.error || "The instruction could not be interpreted.",
+      );
     }
 
     applyInterpretedDraft(data.draft);
     setInterpretationMessage(
-      "The typed instruction was converted into document fields. Verify every name, number and product before generation.",
+      "The typed instruction was converted into document fields. Verify every name, number and product before updating Google Sheets.",
     );
   }
 
@@ -90,12 +92,14 @@ export default function Home() {
     };
 
     if (!response.ok || !data.draft || !data.transcript) {
-      throw new Error(data.error || "The recorded instruction could not be interpreted.");
+      throw new Error(
+        data.error || "The recorded instruction could not be interpreted.",
+      );
     }
 
     applyInterpretedDraft(data.draft);
     setInterpretationMessage(
-      `The complete audio was processed${data.detectedLanguage ? ` as ${data.detectedLanguage}` : ""}. Verify the transcript and every extracted field before generation.`,
+      `The complete audio was processed${data.detectedLanguage ? ` as ${data.detectedLanguage}` : ""}. Verify every extracted field before updating Google Sheets.`,
     );
 
     return {
@@ -116,7 +120,7 @@ export default function Home() {
             </div>
           </div>
           <div className="topbar-note">
-            Audio and PDFs are processed temporarily and are not stored
+            Google Sheets is the business record. Audio and PDFs are not stored.
           </div>
         </div>
       </header>
@@ -124,26 +128,37 @@ export default function Home() {
       <div className="container">
         <section className="hero panel">
           <div>
-            <div className="eyebrow">MVP foundation</div>
-            <h1>Speak the request. Pull workbook data. Generate the same document.</h1>
+            <div className="eyebrow">Google Sheets workflow</div>
+            <h1>
+              Speak the request. Update MEMO and SHEET1. Download the document.
+            </h1>
             <p className="lead">
-              The Excel workbook becomes the product-data source. Names are captured from
-              speech for each document. Supabase safely records the transaction and the
-              workbook receives the same serial reference.
+              The application reads terminology from the connected Google Sheet.
+              After confirmation, MEMO and SHEET1 are updated together in one
+              atomic Google Sheets request. The PDF downloads only after Google
+              confirms the write.
             </p>
             <div className="status-row">
-              <span className="pill"><FileSpreadsheet size={15} /> Excel import</span>
-              <span className="pill"><Mic2 size={15} /> Recorded audio</span>
-              <span className="pill"><Database size={15} /> Structured data</span>
-              <span className="pill"><ShieldCheck size={15} /> Atomic serials</span>
-              <span className="pill"><FileCheck2 size={15} /> Temporary PDF</span>
+              <span className="pill">
+                <FileSpreadsheet size={15} /> Live Google Sheet
+              </span>
+              <span className="pill">
+                <Mic2 size={15} /> Multilingual audio
+              </span>
+              <span className="pill">
+                <ShieldCheck size={15} /> Duplicate protection
+              </span>
+              <span className="pill">
+                <FileCheck2 size={15} /> Temporary PDF
+              </span>
             </div>
           </div>
           <div className="constraint-card">
-            <strong>Every field requires confirmation</strong>
+            <strong>Return date remains blank during creation</strong>
             <p>
-              Audio AI greatly improves multilingual capture, but names, decimals and prices
-              must still be reviewed before an official serial number is recorded.
+              SENDING DATE is recorded when the memorandum is created. RETURN
+              DATE, confirmation person, confirmation date and time will be
+              updated later through a separate “Mark Returned” workflow.
             </p>
           </div>
         </section>
@@ -152,8 +167,8 @@ export default function Home() {
           <article className="panel">
             <div className="step-number">1</div>
             <div className="eyebrow">Data source</div>
-            <h2>Inspect and import Excel</h2>
-            <WorkbookUpload />
+            <h2>Google Sheet connection</h2>
+            <GoogleSheetStatus />
           </article>
 
           <article className="panel">
@@ -165,7 +180,9 @@ export default function Home() {
               onInterpretAudio={interpretAudio}
             />
             {interpretationMessage && (
-              <div className="notice success top-gap">{interpretationMessage}</div>
+              <div className="notice success top-gap">
+                {interpretationMessage}
+              </div>
             )}
           </article>
         </section>
@@ -174,10 +191,10 @@ export default function Home() {
           <section className="panel document-section">
             <div className="step-number">3</div>
             <div className="eyebrow">Validation and generation</div>
-            <h2>Review before recording</h2>
+            <h2>Review before updating Google Sheets</h2>
             <p className="muted section-intro">
-              Nothing should be finalized until the transcript, recipient, descriptions,
-              carats and prices have been checked.
+              Nothing is recorded until the recipient, descriptions, carats and
+              asking prices have been checked.
             </p>
             <ApprovalNoteEditor draft={draft} onChange={setDraft} />
           </section>
@@ -187,8 +204,8 @@ export default function Home() {
             <div className="eyebrow">Validation and generation</div>
             <h2>Memorandum preview</h2>
             <p className="muted section-intro">
-              No memorandum has been created yet. Upload the workbook, then record or type
-              the approval-note instruction. The preview appears only after processing.
+              No memorandum has been created yet. Record or type the instruction.
+              The preview appears only after processing.
             </p>
           </section>
         )}

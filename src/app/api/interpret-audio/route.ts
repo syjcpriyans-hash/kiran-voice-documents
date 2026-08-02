@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { loadGoogleSheetVocabulary } from "@/lib/google-sheet-vocabulary";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,7 +18,7 @@ const responseSchema = z.object({
         size: z.string().min(1),
         descriptionQuery: z.string().min(1),
         carats: z.number().nonnegative(),
-        askingPrice: z.number().nonnegative().optional(),
+        askingPrice: z.number().positive().optional(),
         remarks: z.string().optional(),
       }),
     )
@@ -27,60 +27,6 @@ const responseSchema = z.object({
   warnings: z.array(z.string()).default([]),
 });
 
-function compactCatalogRow(row: unknown): unknown {
-  if (!row || typeof row !== "object" || Array.isArray(row)) return row;
-
-  const record = row as Record<string, unknown>;
-  const compact: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(record)) {
-    if (
-      value !== null &&
-      value !== undefined &&
-      String(value).trim() !== "" &&
-      Object.keys(compact).length < 12
-    ) {
-      compact[key] = value;
-    }
-  }
-
-  return compact;
-}
-
-async function loadWorkbookVocabulary(): Promise<string> {
-  const admin = createAdminClient();
-  if (!admin) return "No workbook catalogue was available.";
-
-  const settings = await admin
-    .from("workbook_settings")
-    .select("current_import_id")
-    .eq("singleton", true)
-    .maybeSingle();
-
-  if (settings.error || !settings.data?.current_import_id) {
-    return "No workbook catalogue was available.";
-  }
-
-  const rows = await admin
-    .from("imported_rows")
-    .select("id, source_row_number, row_data")
-    .eq("import_id", settings.data.current_import_id)
-    .order("source_row_number", { ascending: true })
-    .limit(300);
-
-  if (rows.error || !rows.data?.length) {
-    return "No workbook catalogue was available.";
-  }
-
-  const compactRows = rows.data.map((row) => ({
-    sourceRowId: row.id,
-    sourceRowNumber: row.source_row_number,
-    data: compactCatalogRow(row.row_data),
-  }));
-
-  return JSON.stringify(compactRows).slice(0, 60_000);
-}
-
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
@@ -88,16 +34,25 @@ export async function POST(request: Request) {
     const language = String(form.get("language") || "auto-mixed");
 
     if (!(audio instanceof File)) {
-      return NextResponse.json({ error: "No recorded audio was received." }, { status: 400 });
+      return NextResponse.json(
+        { error: "No recorded audio was received." },
+        { status: 400 },
+      );
     }
 
     if (audio.type !== "audio/wav") {
-      return NextResponse.json({ error: "The recording must be a WAV audio file." }, { status: 400 });
+      return NextResponse.json(
+        { error: "The recording must be a WAV audio file." },
+        { status: 400 },
+      );
     }
 
     if (audio.size <= 1000 || audio.size > 3_500_000) {
       return NextResponse.json(
-        { error: "The recording must be between one second and sixty seconds." },
+        {
+          error:
+            "The recording must be between one second and sixty seconds.",
+        },
         { status: 400 },
       );
     }
@@ -112,8 +67,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const catalogue = await loadWorkbookVocabulary();
-    const audioBase64 = Buffer.from(await audio.arrayBuffer()).toString("base64");
+    const catalogue = await loadGoogleSheetVocabulary();
+    const audioBase64 = Buffer.from(
+      await audio.arrayBuffer(),
+    ).toString("base64");
 
     const prompt = [
       "You are a high-accuracy multilingual transcription and business-data extraction engine.",
@@ -124,23 +81,24 @@ export async function POST(request: Request) {
       "1. Transcribe the entire recording. Do not summarize and do not omit repeated product rows.",
       "2. Preserve every proper name, decimal number, fraction, product abbreviation, price and remark.",
       "3. Convert spoken number words into digits while preserving decimal precision.",
-      "4. Normalize spoken fractions: quarter/one-fourth = 1/4, one-fifth = 1/5, one-sixth = 1/6, one-tenth = 1/10.",
-      "5. Understand Gujarati/Hindi number words and mixed-language phrases.",
-      "6. If any word or number is uncertain, make the best conservative transcription and add a clear warning. Never silently guess.",
+      "4. Normalize spoken fractions: quarter/one-fourth/ek bata chaar = 1/4, one-fifth/ek bata paanch = 1/5, one-sixth/ek bata chhe = 1/6, one-tenth/ek bata das = 1/10.",
+      "5. Understand Gujarati and Hindi number words, Indian pronunciation and mixed-language phrases.",
+      "6. If any word or number is uncertain, make the safest conservative transcription and add a warning. Never silently guess.",
       "",
       "DOCUMENT EXTRACTION RULES:",
       "1. Extract the recipient name directly from the audio.",
       "2. Extract no more than eight line items, in the exact spoken order.",
-      "3. Use the workbook catalogue below to correct product descriptions, sizes and prices when there is a strong match.",
-      "4. When matched, copy the workbook spelling and punctuation exactly, including capitals, spaces and brackets.",
-      "5. Never invent a workbook product, price or carat value.",
-      "6. A price spoken once may apply to subsequent rows only when the speaker explicitly says it applies to all or the context is unambiguous.",
-      "7. Keep recipientType as Broker, Customer or Other.",
+      "3. Use the Google Sheet vocabulary below only to correct spelling, capitalization, size and product terminology when there is a strong match.",
+      "4. Return descriptions in exactly this format: [ SHAPE ] [ QUALITY (COLOR) ]. Example: [ PE ] [ VVS-1 (FG) ].",
+      "5. Never infer or copy an asking price from historical Google Sheet data. Asking price must be explicitly spoken in the current recording.",
+      "6. Never invent a product, carat value, asking price, recipient or remark.",
+      "7. If one asking price applies to several rows only because the speaker explicitly says same price or applies to all, repeat the numeric price on every extracted row.",
+      "8. Keep recipientType as Broker, Customer or Other.",
       "",
       "Return JSON only using exactly this shape:",
       '{"transcript":"complete transcript","detectedLanguage":"string","recipientName":"string","recipientType":"Broker|Customer|Other","through":"string","date":"YYYY-MM-DD optional","items":[{"size":"string","descriptionQuery":"string","carats":number,"askingPrice":number optional,"remarks":"string optional"}],"warnings":["string"]}',
       "",
-      "CURRENT WORKBOOK CATALOGUE:",
+      "CURRENT GOOGLE SHEET VOCABULARY:",
       catalogue,
     ].join("\n");
 
@@ -180,18 +138,27 @@ export async function POST(request: Request) {
     }
 
     const payload = await provider.json();
-    const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!text) {
+    if (!content) {
       throw new Error("The AI provider returned no audio transcription.");
     }
 
-    const parsed = responseSchema.parse(JSON.parse(text));
+    const parsed = responseSchema.parse(JSON.parse(content));
+
+    const warnings = [...parsed.warnings];
+    parsed.items.forEach((item, index) => {
+      if (!item.askingPrice) {
+        warnings.push(
+          `Row ${index + 1}: asking price was not clearly captured. Enter it manually before generation.`,
+        );
+      }
+    });
 
     return NextResponse.json({
       transcript: parsed.transcript,
       detectedLanguage: parsed.detectedLanguage,
-      warnings: parsed.warnings,
+      warnings,
       draft: {
         recipientName: parsed.recipientName,
         recipientType: parsed.recipientType,
@@ -203,7 +170,11 @@ export async function POST(request: Request) {
   } catch (cause) {
     if (cause instanceof z.ZodError) {
       return NextResponse.json(
-        { error: cause.issues[0]?.message || "The audio result was incomplete." },
+        {
+          error:
+            cause.issues[0]?.message ||
+            "The audio result was incomplete.",
+        },
         { status: 422 },
       );
     }

@@ -34,6 +34,7 @@ function formatDiamondDescription(value: string): string {
 
 export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; onChange: (draft: ApprovalDraft) => void }) {
   const [serialNumber, setSerialNumber] = useState("");
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
@@ -41,6 +42,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
 
   function invalidateGeneratedDocument() {
     setSerialNumber("");
+    setRequestId(crypto.randomUUID());
     setMessage(null);
   }
 
@@ -92,7 +94,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
     if (draft.items.length > 8) return "This format supports a maximum of eight rows.";
 
     const incomplete = draft.items.find(
-      (item) => !item.size.trim() || !item.description.trim() || !Number.isFinite(item.carats) || item.carats <= 0 || !Number.isFinite(item.askingPrice),
+      (item) => !item.size.trim() || !item.description.trim() || !Number.isFinite(item.carats) || item.carats <= 0 || !Number.isFinite(item.askingPrice) || item.askingPrice <= 0,
     );
     if (incomplete) return "Complete the size, description, carats and asking price for every row.";
     return null;
@@ -135,7 +137,6 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
     setBusy(true);
     setMessage(null);
     try {
-      const requestId = crypto.randomUUID();
       const response = await fetch("/api/documents/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,17 +164,10 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
       flushSync(() => setSerialNumber(data.document!.serial_number));
       await createPdf(data.document.serial_number);
 
-      if (data.document.excel_sync_status === "completed") {
-        setMessage({
-          type: "success",
-          text: `${data.document.serial_number} was recorded in Supabase, written to the Excel workbook and downloaded as a PDF.`,
-        });
-      } else {
-        setMessage({
-          type: "warning",
-          text: `${data.document.serial_number} was recorded and downloaded, but the Excel write-back failed. The same document can be retried later without creating a second serial number.`,
-        });
-      }
+      setMessage({
+        type: "success",
+        text: `Memo ${data.document.memo_number} was written to MEMO rows ${data.document.memo_rows} and SHEET1 rows ${data.document.sheet1_rows}, then downloaded as a PDF.`,
+      });
     } catch (cause) {
       setMessage({ type: "error", text: cause instanceof Error ? cause.message : "Document generation failed." });
     } finally {
@@ -236,7 +230,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
             <div className="cert-box">CERTIFICATION LOGOS<br />LOCKED TEMPLATE AREA</div>
           </header>
 
-          <div className="system-reference">System Ref: {serialNumber || "Generated after confirmation"}</div>
+          <div className="system-reference">Memo No.: {serialNumber || "Generated after confirmation"}</div>
 
           <div className="meta-row">
             <div>To:</div>
@@ -306,7 +300,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
         <div className="editor-heading">
           <div>
             <h3>Edit extracted product rows</h3>
-            <p className="muted">The real Excel mapping will replace manual row editing after the workbook is available.</p>
+            <p className="muted">These values will be written to MEMO and SHEET1 after confirmation.</p>
           </div>
           <button type="button" className="btn btn-secondary" onClick={addItem} disabled={draft.items.length >= 8 || busy}>
             <Plus size={17} /> Add row
@@ -349,7 +343,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
 
       <div className="generation-actions">
         <button type="button" className="btn btn-success btn-large" onClick={generateRecordAndDownload} disabled={busy}>
-          <Save size={19} /> {busy ? "Generating…" : "Generate, record serial & download PDF"}
+          <Save size={19} /> {busy ? "Updating Google Sheet…" : "Update Google Sheet & download PDF"}
         </button>
         <button type="button" className="btn btn-secondary" onClick={downloadRecordedPdf} disabled={busy || !serialNumber}>
           <Download size={18} /> Download again

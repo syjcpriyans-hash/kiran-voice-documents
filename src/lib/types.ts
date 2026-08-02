@@ -56,8 +56,10 @@ export type WorkbookImportResult = {
 export type CommittedDocument = {
   id: string;
   serial_number: string;
+  memo_number: string;
   total_carats: number;
-  excel_sync_status: "pending" | "completed" | "failed";
+  sheet_write_status: "completed";
+  memo_rows: string;
+  sheet1_rows: string;
   is_new: boolean;
-  sync_error?: string;
 };
