@@ -1612,3 +1612,136 @@ textarea,
     background: #ffffff;
   }
 }
+
+
+/* -------------------------------------------------------------------------- */
+/* Voice-message conversation flow                                            */
+/* -------------------------------------------------------------------------- */
+
+.chat-welcome .welcome-logo-wrap {
+  display: none !important;
+}
+
+.chat-welcome {
+  padding-top: 38px;
+}
+
+.voice-note-bubble {
+  min-width: 285px;
+  max-width: min(440px, 88vw);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px 10px;
+  color: #0c3454;
+  background: #dcecf8;
+  border: 1px solid #c3dced;
+  border-bottom-right-radius: 5px;
+  box-shadow: 0 4px 14px rgba(0, 80, 144, .08);
+}
+
+.voice-note-icon {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #005a98;
+}
+
+.voice-note-content {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 5px;
+}
+
+.voice-note-waveform {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.voice-note-waveform i {
+  width: 3px;
+  min-height: 5px;
+  display: block;
+  flex: 1 1 auto;
+  max-width: 4px;
+  border-radius: 999px;
+  background: rgba(0, 73, 126, .64);
+}
+
+.voice-note-meta {
+  color: #4d6c82;
+  font-size: .7rem;
+  font-weight: 500;
+}
+
+.processing-audio-message {
+  align-items: flex-start;
+}
+
+.processing-audio-copy {
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 5px;
+  color: #697386;
+  font-size: .86rem;
+}
+
+.thinking-dots {
+  min-height: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.thinking-dots i {
+  width: 7px;
+  height: 7px;
+  display: block;
+  border-radius: 50%;
+  background: #005a98;
+  animation: kiranThinkingDot 1.15s infinite ease-in-out;
+}
+
+.thinking-dots i:nth-child(2) {
+  animation-delay: .16s;
+}
+
+.thinking-dots i:nth-child(3) {
+  animation-delay: .32s;
+}
+
+@keyframes kiranThinkingDot {
+  0%,
+  70%,
+  100% {
+    opacity: .28;
+    transform: translateY(0) scale(.86);
+  }
+
+  35% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1);
+  }
+}
+
+@media (max-width: 560px) {
+  .voice-note-bubble {
+    min-width: 238px;
+    max-width: 92vw;
+  }
+
+  .voice-note-waveform {
+    gap: 1.5px;
+  }
+}

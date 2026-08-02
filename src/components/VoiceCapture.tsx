@@ -18,6 +18,8 @@ export type AudioInterpretationResult = {
 type VoiceCaptureProps = {
   onInterpretText: (text: string) => Promise<void>;
   onInterpretAudio: (audio: Blob, language: string) => Promise<AudioInterpretationResult>;
+  onAudioSubmitted?: (details: { durationSeconds: number }) => void;
+  onAudioFinished?: () => void;
 };
 
 type AudioContextConstructor = typeof AudioContext;
@@ -114,6 +116,8 @@ function encodeWav(samples: Float32Array, sampleRate: number): Blob {
 export function VoiceCapture({
   onInterpretText,
   onInterpretAudio,
+  onAudioSubmitted,
+  onAudioFinished,
 }: VoiceCaptureProps) {
   const [transcript, setTranscript] = useState("");
   const [language, setLanguage] = useState("auto-mixed");
@@ -256,6 +260,7 @@ export function VoiceCapture({
         throw new Error("The recording is too long. Keep each instruction under 60 seconds.");
       }
 
+      onAudioSubmitted?.({ durationSeconds: Math.max(1, seconds) });
       await onInterpretAudio(wav, language);
       setTranscript("");
     } catch (cause) {
@@ -265,6 +270,7 @@ export function VoiceCapture({
           : "The recorded instruction could not be processed.",
       );
     } finally {
+      onAudioFinished?.();
       setProcessing(false);
     }
   }
@@ -316,7 +322,7 @@ export function VoiceCapture({
           {recording
             ? `Recording ${seconds}s`
             : processing
-              ? "Processing audio…"
+              ? "Sent"
               : "Ready"}
         </span>
       </div>

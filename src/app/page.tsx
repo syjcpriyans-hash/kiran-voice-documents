@@ -5,6 +5,7 @@ import {
   History as HistoryIcon,
   Menu,
   MessageCircle,
+  Mic2,
   Plus,
   RotateCcw,
   X,
@@ -24,6 +25,15 @@ import type { ApprovalDraft, InterpretedDraft } from "@/lib/types";
 type View = "assistant" | "history" | "void";
 type AssistantTask = "create" | "return";
 
+function formatAudioDuration(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = String(safeSeconds % 60).padStart(2, "0");
+  return `${minutes}:${remainingSeconds}`;
+}
+
+const voiceWaveform = [8, 14, 10, 19, 13, 24, 17, 11, 21, 15, 26, 18, 12, 23, 16, 9, 20, 14, 25, 17];
+
 function getLocalDate(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -41,6 +51,8 @@ export default function Home() {
   const [interpretationMessage, setInterpretationMessage] = useState("");
   const [interpretationWarnings, setInterpretationWarnings] = useState<string[]>([]);
   const [lastUserMessage, setLastUserMessage] = useState("");
+  const [lastAudioDuration, setLastAudioDuration] = useState<number | null>(null);
+  const [audioProcessing, setAudioProcessing] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = sidebarOpen ? "hidden" : "";
@@ -81,6 +93,8 @@ export default function Home() {
   async function interpretText(text: string) {
     const cleanText = text.trim();
     setLastUserMessage(cleanText);
+    setLastAudioDuration(null);
+    setAudioProcessing(false);
     setInterpretationMessage("");
     setInterpretationWarnings([]);
 
@@ -137,7 +151,7 @@ export default function Home() {
       );
     }
 
-    setLastUserMessage(data.transcript);
+    setLastUserMessage("");
     applyInterpretedDraft(data.draft);
     setInterpretationWarnings(data.warnings || []);
     setInterpretationMessage(
@@ -148,6 +162,20 @@ export default function Home() {
       transcript: data.transcript,
       warnings: data.warnings || [],
     };
+  }
+
+  function handleAudioSubmitted(details: { durationSeconds: number }) {
+    setLastAudioDuration(details.durationSeconds);
+    setAudioProcessing(true);
+    setLastUserMessage("");
+    setDraft(null);
+    setLoadedMemoNumber("");
+    setInterpretationMessage("");
+    setInterpretationWarnings([]);
+  }
+
+  function handleAudioFinished() {
+    setAudioProcessing(false);
   }
 
   function openAssistant(nextTask: AssistantTask) {
@@ -171,6 +199,8 @@ export default function Home() {
     );
     setInterpretationWarnings([]);
     setLastUserMessage("");
+    setLastAudioDuration(null);
+    setAudioProcessing(false);
     setView("assistant");
     setTask("create");
     setSidebarOpen(false);
@@ -183,6 +213,8 @@ export default function Home() {
     setInterpretationMessage("");
     setInterpretationWarnings([]);
     setLastUserMessage("");
+    setLastAudioDuration(null);
+    setAudioProcessing(false);
     openAssistant("create");
   }
 
@@ -314,11 +346,12 @@ export default function Home() {
             <section className="assistant-thread">
               {task === "create" ? (
                 <>
-                  {!draft && !interpretationMessage && !lastUserMessage && (
+                  {!draft &&
+                    !interpretationMessage &&
+                    !lastUserMessage &&
+                    lastAudioDuration === null &&
+                    !audioProcessing && (
                     <div className="assistant-welcome chat-welcome">
-                      <div className="welcome-logo-wrap">
-                        <img src="/kiran-logo.png" alt="Kiran" />
-                      </div>
                       <h1>How can I help with today&apos;s memorandum?</h1>
                       <p>
                         Speak naturally in Gujarati, Hindi, English or mixed
@@ -334,7 +367,44 @@ export default function Home() {
                       </div>
                     )}
 
-                    {interpretationMessage && (
+                    {lastAudioDuration !== null && (
+                      <div className="chat-message user-message">
+                        <div className="user-bubble voice-note-bubble">
+                          <span className="voice-note-icon" aria-hidden="true">
+                            <Mic2 size={19} />
+                          </span>
+                          <span className="voice-note-content">
+                            <span className="voice-note-waveform" aria-hidden="true">
+                              {voiceWaveform.map((height, index) => (
+                                <i key={`${height}-${index}`} style={{ height }} />
+                              ))}
+                            </span>
+                            <span className="voice-note-meta">
+                              Voice message · {formatAudioDuration(lastAudioDuration)}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {audioProcessing && (
+                      <div className="chat-message assistant-message processing-audio-message">
+                        <div className="chat-avatar">K</div>
+                        <div className="assistant-message-copy">
+                          <strong>Kiran Assistant</strong>
+                          <div className="processing-audio-copy">
+                            <span>Processing audio</span>
+                            <span className="thinking-dots" aria-label="Kiran Assistant is thinking">
+                              <i />
+                              <i />
+                              <i />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {interpretationMessage && !audioProcessing && (
                       <div className="chat-message assistant-message">
                         <div className="chat-avatar">K</div>
                         <div className="assistant-message-copy">
@@ -344,7 +414,7 @@ export default function Home() {
                       </div>
                     )}
 
-                    {interpretationWarnings.length > 0 && (
+                    {interpretationWarnings.length > 0 && !audioProcessing && (
                       <div className="notice warning assistant-alert">
                         <strong>Please verify these details:</strong>
                         <ul>
@@ -355,7 +425,7 @@ export default function Home() {
                       </div>
                     )}
 
-                    {draft && (
+                    {draft && !audioProcessing && (
                       <div className="assistant-result-card">
                         <div className="result-card-header">
                           <div>
@@ -390,6 +460,8 @@ export default function Home() {
                     <VoiceCapture
                       onInterpretText={interpretText}
                       onInterpretAudio={interpretAudio}
+                      onAudioSubmitted={handleAudioSubmitted}
+                      onAudioFinished={handleAudioFinished}
                     />
                     <p className="assistant-disclaimer">
                       AI can make mistakes. Review all names, decimals and prices
