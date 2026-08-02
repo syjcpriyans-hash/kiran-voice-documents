@@ -3,7 +3,10 @@
 import { Database, FileCheck2, FileSpreadsheet, Mic2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { ApprovalNoteEditor } from "@/components/ApprovalNoteEditor";
-import { VoiceCapture } from "@/components/VoiceCapture";
+import {
+  VoiceCapture,
+  type AudioInterpretationResult,
+} from "@/components/VoiceCapture";
 import { WorkbookUpload } from "@/components/WorkbookUpload";
 import type { ApprovalDraft, InterpretedDraft } from "@/lib/types";
 
@@ -19,7 +22,26 @@ export default function Home() {
   const [draft, setDraft] = useState<ApprovalDraft | null>(null);
   const [interpretationMessage, setInterpretationMessage] = useState("");
 
-  async function interpret(text: string) {
+  function applyInterpretedDraft(interpreted: InterpretedDraft) {
+    const interpretedItems = interpreted.items.map((item) => ({
+      id: crypto.randomUUID(),
+      size: item.size,
+      description: item.descriptionQuery,
+      carats: item.carats,
+      askingPrice: item.askingPrice ?? 0,
+      remarks: item.remarks ?? "",
+    }));
+
+    setDraft({
+      recipientName: interpreted.recipientName || "",
+      recipientType: interpreted.recipientType || "Other",
+      through: interpreted.through || "",
+      date: interpreted.date || getLocalDate(),
+      items: interpretedItems,
+    });
+  }
+
+  async function interpretText(text: string) {
     setInterpretationMessage("");
 
     const response = await fetch("/api/interpret", {
@@ -38,28 +60,48 @@ export default function Home() {
       throw new Error(data.error || "The instruction could not be interpreted.");
     }
 
-    const interpretedItems = data.draft.items.map((item) => ({
-      id: crypto.randomUUID(),
-      size: item.size,
-      description: item.descriptionQuery,
-      carats: item.carats,
-      askingPrice: item.askingPrice ?? 0,
-      remarks: item.remarks ?? "",
-    }));
+    applyInterpretedDraft(data.draft);
+    setInterpretationMessage(
+      "The typed instruction was converted into document fields. Verify every name, number and product before generation.",
+    );
+  }
 
-    setDraft({
-      recipientName: data.draft.recipientName || "",
-      recipientType: data.draft.recipientType || "Other",
-      through: data.draft.through || "",
-      date: data.draft.date || getLocalDate(),
-      items: interpretedItems,
+  async function interpretAudio(
+    audio: Blob,
+    language: string,
+  ): Promise<AudioInterpretationResult> {
+    setInterpretationMessage("");
+
+    const form = new FormData();
+    form.append("audio", audio, "approval-note.wav");
+    form.append("language", language);
+
+    const response = await fetch("/api/interpret-audio", {
+      method: "POST",
+      body: form,
     });
 
+    const data = (await response.json()) as {
+      transcript?: string;
+      detectedLanguage?: string;
+      warnings?: string[];
+      draft?: InterpretedDraft;
+      error?: string;
+    };
+
+    if (!response.ok || !data.draft || !data.transcript) {
+      throw new Error(data.error || "The recorded instruction could not be interpreted.");
+    }
+
+    applyInterpretedDraft(data.draft);
     setInterpretationMessage(
-      data.mode === "demo"
-        ? "The limited demo parser was used. Please verify every field before generation."
-        : "The instruction was converted into document fields. Please verify every name, description, carat and price before generation.",
+      `The complete audio was processed${data.detectedLanguage ? ` as ${data.detectedLanguage}` : ""}. Verify the transcript and every extracted field before generation.`,
     );
+
+    return {
+      transcript: data.transcript,
+      warnings: data.warnings || [],
+    };
   }
 
   return (
@@ -73,7 +115,9 @@ export default function Home() {
               <span>Approval-note workflow</span>
             </div>
           </div>
-          <div className="topbar-note">PDFs are generated temporarily and are not stored</div>
+          <div className="topbar-note">
+            Audio and PDFs are processed temporarily and are not stored
+          </div>
         </div>
       </header>
 
@@ -83,22 +127,23 @@ export default function Home() {
             <div className="eyebrow">MVP foundation</div>
             <h1>Speak the request. Pull workbook data. Generate the same document.</h1>
             <p className="lead">
-              The Excel workbook becomes the product-data source. Names are captured from speech for each document.
-              Supabase safely records the transaction and the workbook receives the same serial reference.
+              The Excel workbook becomes the product-data source. Names are captured from
+              speech for each document. Supabase safely records the transaction and the
+              workbook receives the same serial reference.
             </p>
             <div className="status-row">
               <span className="pill"><FileSpreadsheet size={15} /> Excel import</span>
-              <span className="pill"><Mic2 size={15} /> Voice capture</span>
+              <span className="pill"><Mic2 size={15} /> Recorded audio</span>
               <span className="pill"><Database size={15} /> Structured data</span>
               <span className="pill"><ShieldCheck size={15} /> Atomic serials</span>
               <span className="pill"><FileCheck2 size={15} /> Temporary PDF</span>
             </div>
           </div>
           <div className="constraint-card">
-            <strong>Exact format is temporarily approximated</strong>
+            <strong>Every field requires confirmation</strong>
             <p>
-              A flat blank scan or original digital template will later replace the photographed reference
-              and lock every coordinate precisely.
+              Audio AI greatly improves multilingual capture, but names, decimals and prices
+              must still be reviewed before an official serial number is recorded.
             </p>
           </div>
         </section>
@@ -115,7 +160,10 @@ export default function Home() {
             <div className="step-number">2</div>
             <div className="eyebrow">Voice request</div>
             <h2>Speak the approval note</h2>
-            <VoiceCapture onInterpret={interpret} />
+            <VoiceCapture
+              onInterpretText={interpretText}
+              onInterpretAudio={interpretAudio}
+            />
             {interpretationMessage && (
               <div className="notice success top-gap">{interpretationMessage}</div>
             )}
@@ -128,7 +176,8 @@ export default function Home() {
             <div className="eyebrow">Validation and generation</div>
             <h2>Review before recording</h2>
             <p className="muted section-intro">
-              Nothing should be finalized until the recipient, descriptions, carats and prices have been checked.
+              Nothing should be finalized until the transcript, recipient, descriptions,
+              carats and prices have been checked.
             </p>
             <ApprovalNoteEditor draft={draft} onChange={setDraft} />
           </section>
@@ -138,8 +187,8 @@ export default function Home() {
             <div className="eyebrow">Validation and generation</div>
             <h2>Memorandum preview</h2>
             <p className="muted section-intro">
-              No memorandum has been created yet. Upload the workbook, then speak or type the approval-note
-              instruction. The preview and product rows will appear here only after the instruction is interpreted.
+              No memorandum has been created yet. Upload the workbook, then record or type
+              the approval-note instruction. The preview appears only after processing.
             </p>
           </section>
         )}
