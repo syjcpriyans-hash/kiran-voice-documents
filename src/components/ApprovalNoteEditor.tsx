@@ -6,6 +6,32 @@ import { useState } from "react";
 import { formatApprovalDate, formatIndianCurrency, totalCarats } from "@/lib/calculations";
 import type { ApprovalDraft, ApprovalItem, CommittedDocument } from "@/lib/types";
 
+
+function formatDiamondDescription(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  // Convert speech variations such as "pevvs1fg", "PE vvs1 FG" and
+  // "[ PE ] [ VVS-1 (FG) ]" into the same locked memorandum format.
+  const compact = trimmed.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const clarityMatch = compact.match(/FL|IF|VVS[12]|VS[12]|SI[123]|I[123]/);
+
+  if (!clarityMatch || clarityMatch.index === undefined) {
+    return trimmed.toUpperCase().replace(/\s+/g, " ");
+  }
+
+  const category = compact.slice(0, clarityMatch.index);
+  const clarityToken = clarityMatch[0];
+  const color = compact.slice(clarityMatch.index + clarityToken.length);
+  const clarity = clarityToken.replace(/(VVS|VS|SI|I)([1-3])$/, "$1-$2");
+
+  if (!category || !color) {
+    return trimmed.toUpperCase().replace(/\s+/g, " ");
+  }
+
+  return `[ ${category} ] [ ${clarity} (${color}) ]`;
+}
+
 export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; onChange: (draft: ApprovalDraft) => void }) {
   const [serialNumber, setSerialNumber] = useState("");
   const [busy, setBusy] = useState(false);
@@ -123,7 +149,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
             sourceRowId: item.sourceRowId || null,
             sourceSerialNumber: item.sourceSerialNumber || null,
             size: item.size.trim(),
-            description: item.description.trim(),
+            description: formatDiamondDescription(item.description),
             carats: Number(item.carats),
             askingPrice: Number(item.askingPrice),
             remarks: item.remarks.trim(),
@@ -252,7 +278,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
                   <tr key={item?.id || `empty-${index}`}>
                     <td>{item ? index + 1 : ""}</td>
                     <td>{item?.size || ""}</td>
-                    <td className="description-cell">{item?.description || ""}</td>
+                    <td className="description-cell">{item ? formatDiamondDescription(item.description) : ""}</td>
                     <td>{item ? Number(item.carats).toFixed(2) : ""}</td>
                     <td>{item ? (repeatPrice ? '"' : formatIndianCurrency(item.askingPrice)) : ""}</td>
                     <td>{item?.remarks || ""}</td>
@@ -303,7 +329,7 @@ export function ApprovalNoteEditor({ draft, onChange }: { draft: ApprovalDraft; 
               {draft.items.map((item) => (
                 <tr key={item.id}>
                   <td><input value={item.size} onChange={(event) => updateItem(item.id, { size: event.target.value })} /></td>
-                  <td><input value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} /></td>
+                  <td><input value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} onBlur={() => updateItem(item.id, { description: formatDiamondDescription(item.description) })} /></td>
                   <td><input type="number" step="0.01" min="0" value={item.carats} onChange={(event) => updateItem(item.id, { carats: Number(event.target.value) })} /></td>
                   <td><input type="number" step="1" min="0" value={item.askingPrice} onChange={(event) => updateItem(item.id, { askingPrice: Number(event.target.value) })} /></td>
                   <td><input value={item.remarks} onChange={(event) => updateItem(item.id, { remarks: event.target.value })} /></td>
