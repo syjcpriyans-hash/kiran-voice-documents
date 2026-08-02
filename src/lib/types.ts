@@ -35,6 +35,26 @@ export type InterpretedDraft = {
   items: InterpretedItem[];
 };
 
+export type MasterMatch = {
+  kind: "recipient" | "through" | "shape" | "size" | "quality" | "operator";
+  input: string;
+  canonical: string;
+  confidence: number;
+  ambiguous: boolean;
+  alternatives: string[];
+};
+
+export type MasterData = {
+  brokers: string[];
+  parties: string[];
+  operators: string[];
+  shapes: string[];
+  sizes: string[];
+  qualities: string[];
+  descriptions: string[];
+  loadedAt: string;
+};
+
 export type WorkbookInspection = {
   fileName: string;
   fileSize: number;
@@ -62,4 +82,54 @@ export type CommittedDocument = {
   memo_rows: string;
   sheet1_rows: string;
   is_new: boolean;
+};
+
+export type HistoryRecord = {
+  requestId: string;
+  status: string;
+  memoNumber: string;
+  memoRows: string;
+  sheet1Rows: string;
+  totalCarats: number;
+  recipient: string;
+  createdAt: string;
+  returnedStatus?: string;
+  returnedAt?: string;
+  confirmPerson?: string;
+  voidStatus?: string;
+  voidedAt?: string;
+  voidReason?: string;
+  document: {
+    requestId: string;
+    recipientName: string;
+    recipientType: RecipientType;
+    through: string;
+    documentDate: string;
+    items: Array<{
+      size: string;
+      description: string;
+      carats: number;
+      askingPrice: number;
+      remarks: string;
+    }>;
+  } | null;
+};
+
+export type ReturnLookupResult = {
+  reference: string;
+  memoNumber: string;
+  recipient: string;
+  through: string;
+  memoRows: number[];
+  sheet1Rows: number[];
+  itemCount: number;
+  alreadyReturned: boolean;
+  returnDate?: string;
+  voided?: boolean;
+  voidedAt?: string;
+  voidReason?: string;
+  canUpdateMemo: boolean;
+  canUpdateSheet1: boolean;
+  source: "SYSTEM_LOG" | "SHEET1" | "MEMO";
+  warning?: string;
 };

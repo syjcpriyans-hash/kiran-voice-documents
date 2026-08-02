@@ -1,61 +1,69 @@
-# Kiran Voice Documents — Google Sheets Upgrade
+# Kiran Voice Documents — Operations Upgrade
 
-This upgrade removes operational use of Supabase. It reads terminology from the connected Google Sheet and records each confirmed memorandum in both `MEMO` and `SHEET1`.
+This version keeps the final memo-numbering rule and pixel-identical PDF design unchanged for later. It adds the operational features that can be completed now.
 
-## Before uploading the code
+## Included
 
-For the first test, create a copy of the Google Sheet and put the copy's spreadsheet ID in `GOOGLE_SHEET_ID`. Do not test the first write against the live business master.
+- Voice-enabled Mark Returned workflow
+  - updates SHEET1 Return Date
+  - updates Confirm Person, confirmation Date and Time
+  - updates MEMO status for app-created memorandums
+- CUT. MASTER name matching
+  - customer/party suggestions
+  - broker/through suggestions
+  - operator/confirmation-person suggestions
+- MEMO terminology matching
+  - actual historical shape + quality combinations only
+  - size, shape, quality and colour validation
+- strict confirmation and duplicate-row checks
+- hidden `_SYSTEM_LOG` duplicate protection
+- history search and PDF regeneration
+- non-destructive VOID workflow
+  - no row deletion
+  - marks MEMO status VOID
+  - adds reason to SHEET1 remarks
+  - records void time/reason in `_SYSTEM_LOG`
+- old Excel/Supabase import endpoints disabled
+- Basic Authentication remains enabled
 
-Add these Vercel variables before deployment:
+## Files created
 
-- `APP_BASIC_USER` — for example `kiran`
-- `APP_BASIC_PASSWORD` — use a strong password known only to the father/admin
+- `src/components/ReturnWorkflow.tsx`
+- `src/components/DocumentHistory.tsx`
+- `src/components/VoidWorkflow.tsx`
+- `src/app/api/master-data/route.ts`
+- `src/app/api/history/route.ts`
+- `src/app/api/returns/lookup/route.ts`
+- `src/app/api/returns/interpret/route.ts`
+- `src/app/api/returns/commit/route.ts`
+- `src/app/api/voids/commit/route.ts`
+- `src/lib/master-data.ts`
+- `src/lib/return-workflow.ts`
+- `src/lib/sheet-write.ts`
+
+## Important behaviour
+
+- New documents still use the current temporary internal numeric memo rule. The final official numbering rule is intentionally deferred.
+- The current PDF layout remains the existing approximation. Exact visual calibration is intentionally deferred.
+- A returned memorandum cannot be voided automatically.
+- Historical rows without an `_SYSTEM_LOG` link can be marked returned using their official SHEET1 memo number, but cannot be voided automatically.
+- Correcting an app-created memo uses this process:
+  1. mark the incorrect memo VOID;
+  2. open History;
+  3. load the original document;
+  4. edit the incorrect field;
+  5. create a new replacement memo.
+
+## Vercel variables required
+
 - `GOOGLE_SHEET_ID`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 - `GOOGLE_PRIVATE_KEY`
-- existing `GEMINI_API_KEY`
-- existing `GEMINI_MODEL`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `APP_BASIC_USER`
+- `APP_BASIC_PASSWORD`
 
-## Files to create or replace
+No new environment variable, Google permission or SQL migration is required.
 
-Create:
-- `src/lib/google-sheets.ts`
-- `src/lib/google-sheet-vocabulary.ts`
-- `src/components/GoogleSheetStatus.tsx`
-- `src/app/api/google-sheet/status/route.ts`
-- `src/proxy.ts`
-
-Replace:
-- `src/app/page.tsx`
-- `src/components/ApprovalNoteEditor.tsx`
-- `src/app/api/documents/commit/route.ts`
-- `src/app/api/interpret-audio/route.ts`
-- `src/app/api/interpret/route.ts`
-- `src/lib/types.ts`
-
-No package installation, SQL migration, Google Apps Script, or Supabase change is required.
-
-## What the write does
-
-After the user confirms a memorandum:
-
-1. Determine the next numeric memorandum number from `MEMO` column A.
-2. Write one line per product into `MEMO`.
-3. Write the same line items into `SHEET1`.
-4. Keep `RETURN DATE`, confirmation person, confirmation date, and confirmation time blank during creation.
-5. Write an idempotency record into a hidden `_SYSTEM_LOG` worksheet.
-6. Apply all official writes in one atomic Google Sheets `batchUpdate`.
-7. Download the PDF only after Google confirms the write.
-
-## Important testing rule
-
-The current mapping uses the next integer prefix found in `MEMO` column A as the memo number in `SHEET1`. Verify this rule with the father before switching from the test copy to the live master.
-
-## After deployment
-
-1. Open the website.
-2. Enter the Basic Authentication username and password.
-3. Confirm Step 1 says `Google Sheet connected`.
-4. Create one two-line test memorandum.
-5. Check the exact new rows in `MEMO`, `SHEET1`, and hidden `_SYSTEM_LOG`.
-6. Do not switch the environment variable to the live master until all three locations are correct.
+The final numbering rule and exact PDF background/coordinates are intentionally not changed in this package.

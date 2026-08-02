@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadGoogleSheetVocabulary } from "@/lib/google-sheet-vocabulary";
+import { resolveInterpretedDraft } from "@/lib/master-data";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -145,27 +146,22 @@ export async function POST(request: Request) {
     }
 
     const parsed = responseSchema.parse(JSON.parse(content));
-
-    const warnings = [...parsed.warnings];
-    parsed.items.forEach((item, index) => {
-      if (!item.askingPrice) {
-        warnings.push(
-          `Row ${index + 1}: asking price was not clearly captured. Enter it manually before generation.`,
-        );
-      }
+    const resolved = await resolveInterpretedDraft({
+      recipientName: parsed.recipientName,
+      recipientType: parsed.recipientType,
+      through: parsed.through,
+      date: parsed.date,
+      items: parsed.items,
     });
+
+    const warnings = [...parsed.warnings, ...resolved.warnings];
 
     return NextResponse.json({
       transcript: parsed.transcript,
       detectedLanguage: parsed.detectedLanguage,
-      warnings,
-      draft: {
-        recipientName: parsed.recipientName,
-        recipientType: parsed.recipientType,
-        through: parsed.through,
-        date: parsed.date,
-        items: parsed.items,
-      },
+      warnings: [...new Set(warnings)],
+      matches: resolved.matches,
+      draft: resolved.draft,
     });
   } catch (cause) {
     if (cause instanceof z.ZodError) {

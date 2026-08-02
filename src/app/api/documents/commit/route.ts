@@ -9,6 +9,7 @@ import {
   type GoogleSheetProperties,
   type GoogleSpreadsheetMetadata,
 } from "@/lib/google-sheets";
+import { loadMasterData, normalizeBusinessText } from "@/lib/master-data";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -45,7 +46,7 @@ type ParsedDescription = {
 const SYSTEM_LOG = "_SYSTEM_LOG";
 const MEMO_COLUMNS = 14;
 const SHEET1_COLUMNS = 16;
-const LOG_COLUMNS = 11;
+const LOG_COLUMNS = 19;
 
 function text(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -73,14 +74,17 @@ function parseDiamondDescription(value: string): ParsedDescription {
   const upper = value.trim().toUpperCase();
 
   const bracketMatch = upper.match(
-    /\[\s*([A-Z0-9]+)\s*\]\s*\[\s*([A-Z0-9-]+)\s*\(\s*([A-Z0-9-]+)\s*\)\s*\]/,
+    /^\[\s*([^\]]+)\s*\]\s*\[\s*([^\]]+)\s*\]$/,
   );
 
   if (bracketMatch) {
+    const shape = bracketMatch[1].trim();
+    const second = bracketMatch[2].trim();
+    const qualityColor = second.match(/^(.+?)\s*\(\s*([^\)]+)\s*\)$/);
     return {
-      shape: bracketMatch[1],
-      quality: bracketMatch[2],
-      color: bracketMatch[3],
+      shape,
+      quality: qualityColor ? qualityColor[1].trim() : second,
+      color: qualityColor ? qualityColor[2].trim() : "",
     };
   }
 
@@ -89,7 +93,7 @@ function parseDiamondDescription(value: string): ParsedDescription {
 
   if (!qualityMatch || qualityMatch.index === undefined) {
     throw new Error(
-      `Description "${value}" is not in the expected format [ SHAPE ] [ QUALITY (COLOR) ].`,
+      `Description "${value}" is not in the expected format [ SHAPE ] [ QUALITY ].`,
     );
   }
 
@@ -101,9 +105,9 @@ function parseDiamondDescription(value: string): ParsedDescription {
     "$1-$2",
   );
 
-  if (!shape || !quality || !color) {
+  if (!shape || !quality) {
     throw new Error(
-      `Description "${value}" is missing the shape, quality or colour.`,
+      `Description "${value}" is missing the shape or quality.`,
     );
   }
 
@@ -263,12 +267,28 @@ async function ensureSystemLog(
     throw new Error("The internal Google Sheet log could not be created.");
   }
 
+  const currentColumns = logSheet.gridProperties?.columnCount || 0;
+  if (currentColumns < LOG_COLUMNS) {
+    await batchUpdateSpreadsheet([
+      {
+        appendDimension: {
+          sheetId: logSheet.sheetId,
+          dimension: "COLUMNS",
+          length: LOG_COLUMNS - currentColumns,
+        },
+      },
+    ]);
+    metadata = await getSpreadsheetMetadata();
+    logSheet = findSheet(metadata, SYSTEM_LOG);
+    if (!logSheet) throw new Error("The internal Google Sheet log could not be expanded.");
+  }
+
   const header = await getSheetValues(
-    `${quoteSheetName(SYSTEM_LOG)}!A1:K1`,
+    `${quoteSheetName(SYSTEM_LOG)}!A1:S1`,
     { valueRenderOption: "FORMATTED_VALUE" },
   );
 
-  if (!header.length || !text(header[0]?.[0])) {
+  if (!header.length || !text(header[0]?.[0]) || text(header[0]?.[15]) !== "VOID STATUS") {
     await batchUpdateSpreadsheet([
       updateCellsRequest(
         logSheet.sheetId,
@@ -285,6 +305,14 @@ async function ensureSystemLog(
           "SOURCE",
           "DOCUMENT JSON",
           "ERROR",
+          "RETURN STATUS",
+          "RETURNED AT",
+          "CONFIRM PERSON",
+          "RETURN REQUEST ID",
+          "VOID STATUS",
+          "VOIDED AT",
+          "VOID REASON",
+          "VOID REQUEST ID",
         ]],
         LOG_COLUMNS,
       ),
@@ -312,7 +340,7 @@ function findExistingRequest(
 ) {
   for (let index = 1; index < logRows.length; index += 1) {
     const row = logRows[index] || [];
-    if (text(row[0]) === requestId && text(row[1]) === "COMPLETE") {
+    if (text(row[0]) === requestId && ["COMPLETE", "VOID"].includes(text(row[1]))) {
       return {
         id: requestId,
         serial_number: text(row[2]),
@@ -423,6 +451,25 @@ export async function POST(request: Request) {
   try {
     const input = requestSchema.parse(await request.json());
 
+    const master = await loadMasterData();
+    const knownSizes = new Set(master.sizes.map(normalizeBusinessText));
+    const knownShapes = new Set(master.shapes.map(normalizeBusinessText));
+    const knownQualities = new Set(master.qualities.map(normalizeBusinessText));
+
+    input.items.forEach((item, index) => {
+      const parsed = parseDiamondDescription(item.description);
+      const combinedQuality = parsed.color ? `${parsed.quality} (${parsed.color})` : parsed.quality;
+      if (knownSizes.size && !knownSizes.has(normalizeBusinessText(item.size))) {
+        throw new Error(`Row ${index + 1}: size “${item.size}” is not present in the connected MEMO terminology.`);
+      }
+      if (knownShapes.size && !knownShapes.has(normalizeBusinessText(parsed.shape))) {
+        throw new Error(`Row ${index + 1}: shape “${parsed.shape}” is not present in the connected MEMO terminology.`);
+      }
+      if (knownQualities.size && !knownQualities.has(normalizeBusinessText(combinedQuality))) {
+        throw new Error(`Row ${index + 1}: quality/colour “${combinedQuality}” is not present in the connected MEMO terminology.`);
+      }
+    });
+
     let metadata = await getSpreadsheetMetadata();
     const ensured = await ensureSystemLog(metadata);
     metadata = ensured.metadata;
@@ -444,7 +491,7 @@ export async function POST(request: Request) {
       getSheetValues(`${quoteSheetName("SHEET1")}!A1:P2000`, {
         valueRenderOption: "UNFORMATTED_VALUE",
       }),
-      getSheetValues(`${quoteSheetName(SYSTEM_LOG)}!A:K`, {
+      getSheetValues(`${quoteSheetName(SYSTEM_LOG)}!A:S`, {
         valueRenderOption: "UNFORMATTED_VALUE",
       }),
     ]);
@@ -485,7 +532,7 @@ export async function POST(request: Request) {
         input.through,
         item.parsed.shape,
         item.size,
-        `${item.parsed.quality} (${item.parsed.color})`,
+        item.parsed.color ? `${item.parsed.quality} (${item.parsed.color})` : item.parsed.quality,
         item.carats,
         repeatPrice ? '"' : item.askingPrice,
         item.remarks,
@@ -531,6 +578,14 @@ export async function POST(request: Request) {
       new Date().toISOString(),
       "KIRAN VOICE DOCUMENTS",
       JSON.stringify(input),
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
       "",
     ]];
 
