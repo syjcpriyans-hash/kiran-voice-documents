@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Ban,
   CheckCircle2,
   FileCheck2,
@@ -24,26 +23,18 @@ const steps = [
   {
     icon: FileCheck2,
     title: "3. Review every field",
-    text: "Check the recipient, recipient type, through/broker, date, shape, size, quality, colour, carats, asking price and remarks. Correct anything that is unclear before saving.",
+    text: "Check the recipient, recipient type, through or broker, date, shape, size, quality, colour, carats, asking price and remarks. Correct anything that is unclear before saving.",
   },
   {
     icon: Sheet,
     title: "4. Update Google Sheets and download",
-    text: "After confirmation, the system records the transaction in the memorandum and tracking worksheets. The document downloads only after Google Sheets confirms the update.",
+    text: "After confirmation, the system records the transaction in the memorandum worksheet and the tracking worksheet. The document downloads only after Google Sheets confirms the update.",
   },
 ];
 
 export default function HowItWorksPage() {
   return (
     <main className="help-page">
-      <header className="help-header">
-        <a href="/" className="help-back-link">
-          <ArrowLeft size={18} />
-          Back to Kiran Assistant
-        </a>
-
-      </header>
-
       <section className="help-hero">
         <span className="help-kicker">How this system works</span>
         <h1>Create and manage memorandums using voice</h1>
@@ -108,7 +99,9 @@ export default function HowItWorksPage() {
           <RotateCcw size={24} />
           <h2>Mark returned</h2>
           <p>
-            Use the same assistant conversation and say that a memorandum was returned. Include the memorandum reference, return date, and confirmation person. Verify the linked rows before updating Google Sheets.
+            Tell the assistant that a memorandum was returned. Provide the
+            memorandum reference, return date and confirmation person. Verify
+            the linked rows before updating Google Sheets.
           </p>
         </article>
 
@@ -117,18 +110,18 @@ export default function HowItWorksPage() {
           <h2>History</h2>
           <p>
             Search previous memorandums by number or recipient. You can reload
-            an old memorandum for document regeneration or use it as the starting
-            point for a corrected replacement.
+            an old memorandum to generate the document again or use it as the
+            starting point for a corrected replacement.
           </p>
         </article>
 
         <article className="help-operation-card">
           <Ban size={24} />
-          <h2>Void / Correct</h2>
+          <h2>Void or correct</h2>
           <p>
             Incorrect memorandums are not deleted. Void the original with a
-            reason, then create a replacement so the audit history remains
-            complete.
+            reason, then create a replacement so the complete history remains
+            available.
           </p>
         </article>
       </section>
@@ -136,9 +129,9 @@ export default function HowItWorksPage() {
       <section className="help-warning">
         <strong>Important</strong>
         <p>
-          Artificial intelligence can mishear names, decimal values, or prices. The person using the
-          system is responsible for checking the complete memorandum before
-          updating Google Sheets.
+          Artificial intelligence can mishear names, decimal values or prices.
+          The person using the system is responsible for checking the complete
+          memorandum before updating Google Sheets.
         </p>
       </section>
     </main>
