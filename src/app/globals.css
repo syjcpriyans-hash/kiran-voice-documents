@@ -2152,3 +2152,16 @@ textarea,
 .help-brand {
   display: none !important;
 }
+
+
+/* Memorandum review cleanup */
+.add-row-button {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.add-row-button svg,
+.add-row-button span {
+  flex: 0 0 auto;
+}

@@ -139,7 +139,7 @@ export default function Home() {
     if (data.action === "create_memorandum" && data.draft) {
       applyInterpretedDraft(data.draft);
       setInterpretationMessage(
-        "I prepared the memorandum draft below. Please review every field before updating Google Sheets.",
+        "I prepared the memorandum draft below.",
       );
       return;
     }
@@ -195,7 +195,7 @@ export default function Home() {
     if (data.action === "create_memorandum" && data.draft) {
       applyInterpretedDraft(data.draft);
       setInterpretationMessage(
-        "I processed the complete audio and prepared the memorandum draft below. Please review every field before updating Google Sheets.",
+        "I processed the complete audio and prepared the memorandum draft below.",
       );
     } else if (data.action === "mark_returned" && data.details) {
       applyReturnDetails(data.details);

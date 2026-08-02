@@ -255,7 +255,7 @@ export function ApprovalNoteEditor({
       </div>
 
       <div className="editor-card">
-        <div className="editor-heading"><div><h3>Edit extracted product rows</h3><p className="muted">Names and terminology are suggested from the master-data and memorandum worksheets. New values are still allowed after review.</p></div><button type="button" className="btn btn-secondary" onClick={addItem} disabled={draft.items.length >= 8 || busy}><Plus size={17} /> Add row</button></div>
+        <div className="editor-heading"><div><h3>Edit extracted product rows</h3></div><button type="button" className="btn btn-secondary add-row-button" onClick={addItem} disabled={draft.items.length >= 8 || busy}><Plus size={17} /><span>Add row</span></button></div>
         <div className="item-editor"><table className="item-table"><thead><tr><th>Size</th><th>Description</th><th>Carats</th><th>Asking price</th><th>Remarks</th><th aria-label="Remove row" /></tr></thead><tbody>{draft.items.map((item) => <tr key={item.id}>
           <td><input list="size-master" value={item.size} onChange={(event) => updateItem(item.id, { size: event.target.value })} /></td>
           <td><input list="description-master" value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} onBlur={() => updateItem(item.id, { description: formatDiamondDescription(item.description) })} /></td>
