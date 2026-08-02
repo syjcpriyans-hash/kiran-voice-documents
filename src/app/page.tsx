@@ -2,14 +2,15 @@
 
 import {
   Ban,
-  FileCheck2,
-  FileSpreadsheet,
-  History,
+  History as HistoryIcon,
+  Menu,
+  MessageCircle,
   Mic2,
+  Plus,
   RotateCcw,
-  ShieldCheck,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApprovalNoteEditor } from "@/components/ApprovalNoteEditor";
 import { DocumentHistory } from "@/components/DocumentHistory";
 import { GoogleSheetStatus } from "@/components/GoogleSheetStatus";
@@ -21,7 +22,8 @@ import {
 } from "@/components/VoiceCapture";
 import type { ApprovalDraft, InterpretedDraft } from "@/lib/types";
 
-type View = "create" | "return" | "history" | "void";
+type View = "assistant" | "history" | "void";
+type AssistantTask = "create" | "return";
 
 function getLocalDate(): string {
   const now = new Date();
@@ -32,11 +34,28 @@ function getLocalDate(): string {
 }
 
 export default function Home() {
-  const [view, setView] = useState<View>("create");
+  const [view, setView] = useState<View>("assistant");
+  const [task, setTask] = useState<AssistantTask>("create");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState<ApprovalDraft | null>(null);
   const [loadedMemoNumber, setLoadedMemoNumber] = useState("");
   const [interpretationMessage, setInterpretationMessage] = useState("");
   const [interpretationWarnings, setInterpretationWarnings] = useState<string[]>([]);
+
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setDrawerOpen(false);
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
 
   function applyInterpretedDraft(interpreted: InterpretedDraft) {
     const interpretedItems = interpreted.items.map((item) => ({
@@ -81,7 +100,7 @@ export default function Home() {
     applyInterpretedDraft(data.draft);
     setInterpretationWarnings(data.warnings || []);
     setInterpretationMessage(
-      "The instruction was matched against CUT. MASTER and MEMO terminology. Verify every field before updating Google Sheets.",
+      "I created the memorandum draft and matched the names and terminology against the live Google Sheet. Please review it before recording.",
     );
   }
 
@@ -118,7 +137,7 @@ export default function Home() {
     applyInterpretedDraft(data.draft);
     setInterpretationWarnings(data.warnings || []);
     setInterpretationMessage(
-      `The complete audio was processed${data.detectedLanguage ? ` as ${data.detectedLanguage}` : ""} and matched against the live Google Sheet terminology.`,
+      `I processed the complete audio${data.detectedLanguage ? ` as ${data.detectedLanguage}` : ""} and prepared the memorandum draft below.`,
     );
 
     return {
@@ -127,13 +146,30 @@ export default function Home() {
     };
   }
 
+  function openAssistant(nextTask: AssistantTask) {
+    setView("assistant");
+    setTask(nextTask);
+    setDrawerOpen(false);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 20);
+  }
+
+  function openTool(nextView: Exclude<View, "assistant">) {
+    setView(nextView);
+    setDrawerOpen(false);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 20);
+  }
+
   function loadHistoryDraft(historyDraft: ApprovalDraft, memoNumber: string) {
     setDraft(historyDraft);
     setLoadedMemoNumber(memoNumber);
-    setInterpretationMessage(`Historical memo ${memoNumber} was loaded. Download it again, or edit any field to create a corrected replacement draft.`);
+    setInterpretationMessage(
+      `Historical memo ${memoNumber} is ready. Download it again, or edit any field to create a corrected replacement draft.`,
+    );
     setInterpretationWarnings([]);
-    setView("create");
-    window.setTimeout(() => window.scrollTo({ top: 520, behavior: "smooth" }), 50);
+    setView("assistant");
+    setTask("create");
+    setDrawerOpen(false);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   }
 
   function startNewMemo() {
@@ -141,175 +177,283 @@ export default function Home() {
     setLoadedMemoNumber("");
     setInterpretationMessage("");
     setInterpretationWarnings([]);
-    setView("create");
+    openAssistant("create");
   }
 
+  const pageTitle =
+    view === "history"
+      ? "Memorandum history"
+      : view === "void"
+        ? "Void or correct a memorandum"
+        : task === "return"
+          ? "Mark goods returned"
+          : "Kiran AI Assistant";
+
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <div className="brand">
-            <div className="brand-mark">K</div>
-            <div>
-              <strong>Kiran Voice Documents</strong>
-              <span>Google Sheets memorandum operations</span>
-            </div>
-          </div>
-          <div className="topbar-note">
-            Google Sheets is the business record. Audio and PDFs are not stored.
-          </div>
-        </div>
+    <div className="assistant-app">
+      <header className="assistant-header">
+        <button
+          type="button"
+          className="assistant-brand"
+          onClick={startNewMemo}
+          aria-label="Open Kiran AI Assistant"
+        >
+          <img src="/kiran-logo.png" alt="Kiran" />
+          <span>
+            <strong>{pageTitle}</strong>
+            <small>Memorandum operations</small>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="menu-button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={drawerOpen}
+          aria-controls="assistant-menu"
+        >
+          <Menu size={24} />
+        </button>
       </header>
 
-      <div className="container">
-        <section className="hero panel">
-          <div>
-            <div className="eyebrow">Daily operations</div>
-            <h1>Create, return, search and correct memorandums safely.</h1>
-            <p className="lead">
-              Names and terminology come from CUT. MASTER and MEMO. Confirmed
-              transactions update Google Sheets, while duplicate protection and
-              the hidden audit log preserve the operational history.
-            </p>
-            <div className="status-row">
-              <span className="pill"><FileSpreadsheet size={15} /> Live Google Sheet</span>
-              <span className="pill"><Mic2 size={15} /> Multilingual audio</span>
-              <span className="pill"><ShieldCheck size={15} /> Duplicate protection</span>
-              <span className="pill"><RotateCcw size={15} /> Return workflow</span>
-              <span className="pill"><History size={15} /> Search & regenerate</span>
-              <span className="pill"><FileCheck2 size={15} /> Temporary PDF</span>
-            </div>
-          </div>
-          <div className="constraint-card">
-            <strong>Two items remain intentionally unchanged</strong>
-            <p>
-              The final official numbering rule and pixel-identical PDF template
-              will be added later when you provide those business decisions.
-            </p>
-          </div>
-        </section>
+      <button
+        type="button"
+        className={`drawer-backdrop ${drawerOpen ? "open" : ""}`}
+        onClick={() => setDrawerOpen(false)}
+        aria-label="Close menu"
+        tabIndex={drawerOpen ? 0 : -1}
+      />
 
-        <section className="panel connection-panel">
-          <div>
-            <div className="eyebrow">System status</div>
-            <h2>Google Sheet connection</h2>
-          </div>
-          <GoogleSheetStatus />
-        </section>
+      <aside
+        id="assistant-menu"
+        className={`assistant-drawer ${drawerOpen ? "open" : ""}`}
+        aria-hidden={!drawerOpen}
+      >
+        <div className="drawer-header">
+          <img src="/kiran-logo.png" alt="Kiran" />
+          <button
+            type="button"
+            className="drawer-close"
+            onClick={() => setDrawerOpen(false)}
+            aria-label="Close menu"
+          >
+            <X size={22} />
+          </button>
+        </div>
 
-        <nav className="operation-tabs" aria-label="Memorandum operations">
-          <button type="button" className={view === "create" ? "active" : ""} onClick={() => setView("create")}>
-            <Mic2 size={18} /> Create Memo
+        <button type="button" className="new-chat-button" onClick={startNewMemo}>
+          <Plus size={19} /> New memorandum
+        </button>
+
+        <nav className="drawer-nav" aria-label="Application menu">
+          <button
+            type="button"
+            className={view === "assistant" && task === "create" ? "active" : ""}
+            onClick={() => openAssistant("create")}
+          >
+            <MessageCircle size={20} />
+            <span>
+              <strong>Create memorandum</strong>
+              <small>Speak or type the details</small>
+            </span>
           </button>
-          <button type="button" className={view === "return" ? "active" : ""} onClick={() => setView("return")}>
-            <RotateCcw size={18} /> Mark Returned
+          <button
+            type="button"
+            className={view === "assistant" && task === "return" ? "active" : ""}
+            onClick={() => openAssistant("return")}
+          >
+            <RotateCcw size={20} />
+            <span>
+              <strong>Mark returned</strong>
+              <small>Record received goods</small>
+            </span>
           </button>
-          <button type="button" className={view === "history" ? "active" : ""} onClick={() => setView("history")}>
-            <History size={18} /> History
+          <div className="drawer-separator" />
+          <button
+            type="button"
+            className={view === "history" ? "active" : ""}
+            onClick={() => openTool("history")}
+          >
+            <HistoryIcon size={20} />
+            <span>
+              <strong>History</strong>
+              <small>Search and regenerate</small>
+            </span>
           </button>
-          <button type="button" className={view === "void" ? "active" : ""} onClick={() => setView("void")}>
-            <Ban size={18} /> Void / Correct
+          <button
+            type="button"
+            className={view === "void" ? "active" : ""}
+            onClick={() => openTool("void")}
+          >
+            <Ban size={20} />
+            <span>
+              <strong>Void / Correct</strong>
+              <small>Preserve the audit trail</small>
+            </span>
           </button>
         </nav>
 
-        {view === "create" && (
-          <>
-            <section className="panel document-section">
-              <div className="step-number">1</div>
-              <div className="eyebrow">Voice request</div>
-              <div className="section-title-row">
-                <div>
-                  <h2>Speak the approval note</h2>
-                  <p className="muted">Use Gujarati, Hindi, English or mixed language.</p>
-                </div>
-                {draft && (
-                  <button type="button" className="btn btn-secondary" onClick={startNewMemo}>
-                    Start new memo
-                  </button>
+        <div className="drawer-system-status">
+          <GoogleSheetStatus />
+        </div>
+      </aside>
+
+      <main className="assistant-main">
+        {view === "assistant" && (
+          <section className="assistant-thread">
+            <div className="task-switcher" aria-label="Choose voice task">
+              <button
+                type="button"
+                className={task === "create" ? "active" : ""}
+                onClick={() => setTask("create")}
+              >
+                <Mic2 size={17} /> Create memo
+              </button>
+              <button
+                type="button"
+                className={task === "return" ? "active" : ""}
+                onClick={() => setTask("return")}
+              >
+                <RotateCcw size={17} /> Mark returned
+              </button>
+            </div>
+
+            {task === "create" ? (
+              <>
+                {!draft && !interpretationMessage && (
+                  <div className="assistant-welcome">
+                    <div className="welcome-logo-wrap">
+                      <img src="/kiran-logo.png" alt="Kiran" />
+                    </div>
+                    <h1>How can I help with today&apos;s memorandum?</h1>
+                    <p>
+                      Tap the microphone and speak naturally in Gujarati, Hindi,
+                      English or mixed language. You can also type the instruction.
+                    </p>
+                    <div className="prompt-examples">
+                      <span>Create an approval note for a broker</span>
+                      <span>Add multiple diamond rows</span>
+                      <span>Use different prices for each item</span>
+                    </div>
+                  </div>
                 )}
-              </div>
-              <VoiceCapture
-                onInterpretText={interpretText}
-                onInterpretAudio={interpretAudio}
-              />
-              {interpretationMessage && (
-                <div className="notice success top-gap">{interpretationMessage}</div>
-              )}
-              {interpretationWarnings.length > 0 && (
-                <div className="notice warning top-gap">
-                  <strong>Check these details:</strong>
-                  <ul>
-                    {interpretationWarnings.map((warning) => <li key={warning}>{warning}</li>)}
-                  </ul>
+
+                {interpretationMessage && (
+                  <div className="chat-message assistant-message">
+                    <div className="chat-avatar">K</div>
+                    <div>
+                      <strong>Kiran Assistant</strong>
+                      <p>{interpretationMessage}</p>
+                    </div>
+                  </div>
+                )}
+
+                {interpretationWarnings.length > 0 && (
+                  <div className="notice warning assistant-alert">
+                    <strong>Please verify these details:</strong>
+                    <ul>
+                      {interpretationWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {draft && (
+                  <div className="assistant-result-card">
+                    <div className="result-card-header">
+                      <div>
+                        <span className="result-kicker">Draft ready</span>
+                        <h2>Review before updating Google Sheets</h2>
+                        <p>
+                          Confirm every name, product, carat value and price before
+                          recording the transaction.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={startNewMemo}
+                      >
+                        <Plus size={17} /> New memo
+                      </button>
+                    </div>
+                    <ApprovalNoteEditor
+                      draft={draft}
+                      onChange={setDraft}
+                      initialSerialNumber={loadedMemoNumber}
+                    />
+                  </div>
+                )}
+
+                <div className="composer-dock">
+                  <VoiceCapture
+                    onInterpretText={interpretText}
+                    onInterpretAudio={interpretAudio}
+                  />
+                  <p className="assistant-disclaimer">
+                    AI can make mistakes. Review all names, decimals and prices before
+                    confirming.
+                  </p>
                 </div>
-              )}
-            </section>
-
-            {draft ? (
-              <section className="panel document-section">
-                <div className="step-number">2</div>
-                <div className="eyebrow">Validation and generation</div>
-                <h2>Review before updating Google Sheets</h2>
-                <p className="muted section-intro">
-                  Product terminology is validated again on the server. Nothing is
-                  recorded until both confirmation checkboxes are selected.
-                </p>
-                <ApprovalNoteEditor
-                  draft={draft}
-                  onChange={setDraft}
-                  initialSerialNumber={loadedMemoNumber}
-                />
-              </section>
+              </>
             ) : (
-              <section className="panel document-section empty-state">
-                <div className="step-number">2</div>
-                <div className="eyebrow">Validation and generation</div>
-                <h2>Memorandum preview</h2>
-                <p className="muted">
-                  No memorandum has been created yet. Record or type the instruction;
-                  the preview and product rows will appear after processing.
-                </p>
-              </section>
+              <>
+                <div className="assistant-welcome compact-welcome">
+                  <div className="welcome-icon"><RotateCcw size={29} /></div>
+                  <h1>Which memorandum has been returned?</h1>
+                  <p>
+                    Speak the memorandum reference, return date and confirmation
+                    person. The assistant will find the linked rows before any update.
+                  </p>
+                </div>
+                <div className="assistant-result-card return-assistant-card">
+                  <ReturnWorkflow />
+                </div>
+              </>
             )}
-          </>
-        )}
-
-        {view === "return" && (
-          <section className="panel document-section">
-            <div className="eyebrow">Received / returned goods</div>
-            <h2>Mark a memorandum returned</h2>
-            <p className="muted section-intro">
-              This updates SHEET1 return date, confirmation person, confirmation date
-              and time. App-created memorandums also update MEMO return status.
-            </p>
-            <ReturnWorkflow />
           </section>
         )}
 
         {view === "history" && (
-          <section className="panel document-section">
-            <div className="eyebrow">Audit history</div>
-            <h2>Search and regenerate documents</h2>
-            <p className="muted section-intro">
-              Search app-created memorandums, view return/void status and reload the
-              saved structured data for PDF regeneration or a corrected replacement.
-            </p>
-            <DocumentHistory onLoad={loadHistoryDraft} />
+          <section className="tool-page">
+            <div className="tool-page-heading">
+              <div className="tool-icon"><HistoryIcon size={24} /></div>
+              <div>
+                <span>Business records</span>
+                <h1>Memorandum history</h1>
+                <p>
+                  Search app-created memorandums, view return or void status and
+                  reload saved information for PDF regeneration or correction.
+                </p>
+              </div>
+            </div>
+            <div className="assistant-result-card">
+              <DocumentHistory onLoad={loadHistoryDraft} />
+            </div>
           </section>
         )}
 
         {view === "void" && (
-          <section className="panel document-section">
-            <div className="eyebrow">Non-destructive correction</div>
-            <h2>Void an incorrect memorandum</h2>
-            <p className="muted section-intro">
-              Incorrect records are never deleted. Void the original, then load it
-              from History and edit it to create a new replacement memorandum.
-            </p>
-            <VoidWorkflow />
+          <section className="tool-page">
+            <div className="tool-page-heading">
+              <div className="tool-icon danger"><Ban size={24} /></div>
+              <div>
+                <span>Non-destructive correction</span>
+                <h1>Void or correct a memorandum</h1>
+                <p>
+                  Incorrect records are never deleted. Void the original, then load it
+                  from History and create a replacement memorandum.
+                </p>
+              </div>
+            </div>
+            <div className="assistant-result-card">
+              <VoidWorkflow />
+            </div>
           </section>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

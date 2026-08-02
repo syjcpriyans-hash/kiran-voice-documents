@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, Square, WandSparkles } from "lucide-react";
+import { ArrowUp, Mic, Square, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 const languages = [
@@ -299,56 +299,42 @@ export function VoiceCapture({
   }
 
   return (
-    <div className="voice-card">
-      <div className="field compact-field">
-        <label htmlFor="speech-language">Speaking language</label>
-        <select
-          id="speech-language"
-          value={language}
-          onChange={(event) => setLanguage(event.target.value)}
-          disabled={recording || processing}
-        >
-          {languages.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          ))}
-        </select>
+    <div className="assistant-composer">
+      <div className="composer-header">
+        <div className="composer-language">
+          <label htmlFor="speech-language">Language</label>
+          <select
+            id="speech-language"
+            value={language}
+            onChange={(event) => setLanguage(event.target.value)}
+            disabled={recording || processing}
+          >
+            {languages.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <span className={`composer-status ${recording ? "recording" : processing ? "processing" : ""}`}>
+          {recording
+            ? `Recording ${seconds}s`
+            : processing
+              ? "Processing audio…"
+              : "Ready"}
+        </span>
       </div>
 
-      <button
-        type="button"
-        className={`mic-button ${recording ? "listening" : ""}`}
-        onClick={recording ? stopRecording : startRecording}
-        aria-label={recording ? "Stop recording" : "Start recording"}
-        disabled={!supported || processing}
-      >
-        {recording ? <Square size={32} /> : <Mic size={40} />}
-      </button>
-
-      <h3>
-        {recording
-          ? `Recording… ${seconds}s`
-          : processing
-            ? "Processing the complete audio…"
-            : "Press once, speak naturally, then press again"}
-      </h3>
-
-      <p className="muted center-text">
-        The complete recording is transcribed after you stop. Gujarati, Hindi, English and
-        mixed-language speech are supported.
-      </p>
-
       {!supported && (
-        <div className="notice error">
+        <div className="notice error composer-notice">
           Use the latest Google Chrome and allow microphone access. Typed instructions still work.
         </div>
       )}
 
-      {error && <div className="notice error">{error}</div>}
+      {error && <div className="notice error composer-notice">{error}</div>}
 
       {warnings.length > 0 && (
-        <div className="notice warning">
+        <div className="notice warning composer-notice">
           <strong>Please verify these uncertain details:</strong>
           <ul>
             {warnings.map((warning) => (
@@ -359,32 +345,53 @@ export function VoiceCapture({
       )}
 
       <textarea
-        className="transcript"
+        className="transcript assistant-input"
         value={transcript}
         onChange={(event) => setTranscript(event.target.value)}
-        placeholder="The full transcript will appear here after the recording is processed. You can also type an instruction."
+        placeholder="Speak or type your memorandum instruction…"
         disabled={recording}
+        rows={3}
       />
 
-      <div className="actions">
+      <div className="composer-toolbar">
         <button
           type="button"
-          className="btn btn-primary"
-          onClick={interpretTypedText}
-          disabled={processing || recording || !transcript.trim()}
+          className="composer-clear"
+          onClick={clearAll}
+          disabled={processing || recording || !transcript}
+          aria-label="Clear instruction"
         >
-          <WandSparkles size={18} />
-          {processing ? "Processing…" : "Interpret edited text"}
+          <Trash2 size={17} />
+          <span>Clear</span>
         </button>
 
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={clearAll}
-          disabled={processing || recording}
-        >
-          Clear
-        </button>
+        <span className="composer-help">
+          {recording
+            ? "Speak naturally, then tap stop"
+            : "Gujarati · Hindi · English · Mixed"}
+        </span>
+
+        <div className="composer-actions">
+          <button
+            type="button"
+            className={`composer-mic ${recording ? "recording" : ""}`}
+            onClick={recording ? stopRecording : startRecording}
+            aria-label={recording ? "Stop recording" : "Start recording"}
+            disabled={!supported || processing}
+          >
+            {recording ? <Square size={21} /> : <Mic size={23} />}
+          </button>
+
+          <button
+            type="button"
+            className="composer-send"
+            onClick={interpretTypedText}
+            disabled={processing || recording || !transcript.trim()}
+            aria-label="Interpret instruction"
+          >
+            <ArrowUp size={22} />
+          </button>
+        </div>
       </div>
     </div>
   );
