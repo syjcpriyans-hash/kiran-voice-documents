@@ -116,6 +116,33 @@ function dateToGoogleSerial(value: string): number {
   return utc / 86_400_000 + 25_569;
 }
 
+function numberFormatRequest(
+  sheetId: number,
+  startRow: number,
+  rowCount: number,
+  columnIndex: number,
+  type: "DATE" | "NUMBER",
+  pattern: string,
+): Record<string, unknown> {
+  return {
+    repeatCell: {
+      range: {
+        sheetId,
+        startRowIndex: startRow - 1,
+        endRowIndex: startRow - 1 + rowCount,
+        startColumnIndex: columnIndex,
+        endColumnIndex: columnIndex + 1,
+      },
+      cell: {
+        userEnteredFormat: {
+          numberFormat: { type, pattern },
+        },
+      },
+      fields: "userEnteredFormat.numberFormat",
+    },
+  };
+}
+
 function toCellData(value: CellInput): Record<string, unknown> {
   if (typeof value === "number") {
     return { userEnteredValue: { numberValue: value } };
@@ -352,27 +379,36 @@ function findSheet1Position(values: unknown[][]): {
     }
   }
 
-  let lastDataRow = headerRow;
+  // SHEET1 contains a separator/marker row filled with asterisks near row 1011.
+  // Rows below that marker are not part of the live register and must be ignored.
+  let markerRow = values.length + 1;
 
   for (let index = headerRow; index < values.length; index += 1) {
     const row = values[index] || [];
-    const sendingDate = text(row[0]);
-    const memoNumber = text(row[2]);
-    const customer = text(row[3]);
-    const carats = row[10];
+    const cells = Array.from({ length: SHEET1_COLUMNS }, (_, column) =>
+      text(row[column]),
+    );
+    const starCount = cells.filter((value) => value === "*").length;
+    const nonStarValues = cells.filter(
+      (value) => value && value !== "*",
+    );
 
-    const isMarker =
-      sendingDate === "*" &&
-      !memoNumber &&
-      !customer &&
-      !text(carats);
+    if (starCount >= 4 && nonStarValues.length === 0) {
+      markerRow = index + 1;
+      break;
+    }
+  }
 
-    const hasRealData =
-      !isMarker &&
-      (
-        (memoNumber && memoNumber !== "*") ||
-        (customer && (sendingDate || text(carats)))
-      );
+  let lastDataRow = headerRow;
+  const lastSearchIndex = Math.min(values.length, markerRow - 1);
+
+  for (let index = headerRow; index < lastSearchIndex; index += 1) {
+    const row = values[index] || [];
+    const keyColumns = [0, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12];
+    const hasRealData = keyColumns.some((column) => {
+      const value = text(row[column]);
+      return Boolean(value && value !== "*");
+    });
 
     if (hasRealData) lastDataRow = index + 1;
   }
@@ -462,7 +498,7 @@ export async function POST(request: Request) {
     const sheet1WriteRows: CellInput[][] = parsedItems.map((item) => [
       dateSerial,
       "",
-      memoNumber,
+      "", // Official SHEET1 memo number is not the internal MEMO line code.
       input.recipientName,
       input.through,
       "",
@@ -545,6 +581,48 @@ export async function POST(request: Request) {
         logStartRow,
         logRow,
         LOG_COLUMNS,
+      ),
+      // Guarantee that Google displays real dates rather than serial codes.
+      numberFormatRequest(
+        memoSheet.sheetId,
+        memoPosition.startRow,
+        memoRows.length,
+        1,
+        "DATE",
+        "dd-mmm-yy",
+      ),
+      numberFormatRequest(
+        sheet1.sheetId,
+        sheet1Position.startRow,
+        sheet1WriteRows.length,
+        0,
+        "DATE",
+        "dd-mmm-yy",
+      ),
+      // Preserve carat decimals and readable asking-price formatting.
+      numberFormatRequest(
+        memoSheet.sheetId,
+        memoPosition.startRow,
+        memoRows.length,
+        8,
+        "NUMBER",
+        "0.00",
+      ),
+      numberFormatRequest(
+        sheet1.sheetId,
+        sheet1Position.startRow,
+        sheet1WriteRows.length,
+        10,
+        "NUMBER",
+        "0.00",
+      ),
+      numberFormatRequest(
+        sheet1.sheetId,
+        sheet1Position.startRow,
+        sheet1WriteRows.length,
+        11,
+        "NUMBER",
+        "#,##0.00",
       ),
     );
 
