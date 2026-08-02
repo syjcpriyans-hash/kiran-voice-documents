@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { generateJsonWithGeminiFallback } from "@/lib/gemini-fallback";
 import { findBestMasterMatch, loadMasterData } from "@/lib/master-data";
 
 export const runtime = "nodejs";
@@ -21,15 +22,18 @@ export async function POST(request: Request) {
     const language = String(form.get("language") || "auto-mixed");
 
     if (!(audio instanceof File) || audio.type !== "audio/wav") {
-      return NextResponse.json({ error: "A WAV microphone recording is required." }, { status: 400 });
-    }
-    if (audio.size <= 1000 || audio.size > 3_500_000) {
-      return NextResponse.json({ error: "The recording must be between one and sixty seconds." }, { status: 400 });
+      return NextResponse.json(
+        { error: "A WAV microphone recording is required." },
+        { status: 400 },
+      );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL;
-    if (!apiKey || !model) throw new Error("Gemini is not configured in Vercel.");
+    if (audio.size <= 1000 || audio.size > 3_500_000) {
+      return NextResponse.json(
+        { error: "The recording must be between one and sixty seconds." },
+        { status: 400 },
+      );
+    }
 
     const master = await loadMasterData();
     const today = new Intl.DateTimeFormat("en-CA", {
@@ -38,7 +42,9 @@ export async function POST(request: Request) {
       month: "2-digit",
       day: "2-digit",
     }).format(new Date());
-    const audioBase64 = Buffer.from(await audio.arrayBuffer()).toString("base64");
+    const audioBase64 = Buffer.from(
+      await audio.arrayBuffer(),
+    ).toString("base64");
 
     const prompt = [
       "Transcribe and extract a diamond memorandum return/received instruction.",
@@ -54,31 +60,41 @@ export async function POST(request: Request) {
       `Known operator names: ${JSON.stringify(master.operators)}`,
     ].join("\n");
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: "audio/wav", data: audioBase64 } }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0 },
-        }),
-      },
+    const parsed = await generateJsonWithGeminiFallback({
+      parts: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: "audio/wav",
+            data: audioBase64,
+          },
+        },
+      ],
+      parse: (content) => responseSchema.parse(JSON.parse(content)),
+    });
+
+    const personMatch = findBestMasterMatch(
+      parsed.confirmPerson,
+      master.operators,
+      "operator",
     );
-
-    if (!response.ok) throw new Error(`AI returned ${response.status}: ${(await response.text()).slice(0, 400)}`);
-    const payload = await response.json();
-    const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) throw new Error("The AI returned no return details.");
-
-    const parsed = responseSchema.parse(JSON.parse(content));
-    const personMatch = findBestMasterMatch(parsed.confirmPerson, master.operators, "operator");
-    const confirmPerson = personMatch && personMatch.confidence >= 0.86 && !personMatch.ambiguous
-      ? personMatch.canonical
-      : parsed.confirmPerson;
+    const confirmPerson =
+      personMatch &&
+      personMatch.confidence >= 0.86 &&
+      !personMatch.ambiguous
+        ? personMatch.canonical
+        : parsed.confirmPerson;
     const warnings = [...parsed.warnings];
-    if (!personMatch) warnings.push(`Confirmation person “${parsed.confirmPerson}” was not found in CUT. MASTER.`);
-    else if (personMatch.ambiguous || personMatch.confidence < 0.86) warnings.push(`Confirm whether “${parsed.confirmPerson}” means “${personMatch.canonical}”.`);
+
+    if (!personMatch) {
+      warnings.push(
+        `Confirmation person “${parsed.confirmPerson}” was not found in CUT. MASTER.`,
+      );
+    } else if (personMatch.ambiguous || personMatch.confidence < 0.86) {
+      warnings.push(
+        `Confirm whether “${parsed.confirmPerson}” means “${personMatch.canonical}”.`,
+      );
+    }
 
     return NextResponse.json({
       transcript: parsed.transcript,
@@ -92,10 +108,22 @@ export async function POST(request: Request) {
     });
   } catch (cause) {
     if (cause instanceof z.ZodError) {
-      return NextResponse.json({ error: cause.issues[0]?.message || "Return audio is incomplete." }, { status: 400 });
+      return NextResponse.json(
+        {
+          error:
+            cause.issues[0]?.message || "Return audio is incomplete.",
+        },
+        { status: 400 },
+      );
     }
+
     return NextResponse.json(
-      { error: cause instanceof Error ? cause.message : "Return audio could not be interpreted." },
+      {
+        error:
+          cause instanceof Error
+            ? cause.message
+            : "Return audio could not be interpreted.",
+      },
       { status: 500 },
     );
   }

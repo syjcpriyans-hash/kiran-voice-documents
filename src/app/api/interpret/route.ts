@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { generateJsonWithGeminiFallback } from "@/lib/gemini-fallback";
 import { loadGoogleSheetVocabulary } from "@/lib/google-sheet-vocabulary";
 import { resolveInterpretedDraft } from "@/lib/master-data";
 import { interpretedDraftSchema } from "@/lib/voice-parser";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const requestSchema = z.object({
   transcript: z.string().min(1).max(12000),
@@ -13,14 +15,8 @@ const requestSchema = z.object({
 export async function POST(request: Request) {
   try {
     const { transcript } = requestSchema.parse(await request.json());
-    const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL;
-
-    if (!apiKey || !model) {
-      return NextResponse.json({ error: "Gemini is not configured in Vercel." }, { status: 503 });
-    }
-
     const vocabulary = await loadGoogleSheetVocabulary();
+
     const prompt = [
       "You convert a multilingual business instruction into structured approval-note data.",
       "The instruction may mix Gujarati, Hindi and Indian English.",
@@ -37,31 +33,11 @@ export async function POST(request: Request) {
       `INSTRUCTION: ${JSON.stringify(transcript)}`,
     ].join("\n");
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0,
-          },
-        }),
-      },
-    );
+    const parsed = await generateJsonWithGeminiFallback({
+      parts: [{ text: prompt }],
+      parse: (content) => interpretedDraftSchema.parse(JSON.parse(content)),
+    });
 
-    if (!response.ok) {
-      const providerText = await response.text();
-      throw new Error(`AI provider returned ${response.status}: ${providerText.slice(0, 400)}`);
-    }
-
-    const payload = await response.json();
-    const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) throw new Error("The AI provider returned no structured content.");
-
-    const parsed = interpretedDraftSchema.parse(JSON.parse(content));
     const resolved = await resolveInterpretedDraft(parsed);
 
     return NextResponse.json({
@@ -72,10 +48,17 @@ export async function POST(request: Request) {
     });
   } catch (cause) {
     if (cause instanceof z.ZodError) {
-      return NextResponse.json({ error: cause.issues[0]?.message || "Invalid request." }, { status: 400 });
+      return NextResponse.json(
+        { error: cause.issues[0]?.message || "Invalid request." },
+        { status: 400 },
+      );
     }
+
     return NextResponse.json(
-      { error: cause instanceof Error ? cause.message : "Interpretation failed." },
+      {
+        error:
+          cause instanceof Error ? cause.message : "Interpretation failed.",
+      },
       { status: 500 },
     );
   }

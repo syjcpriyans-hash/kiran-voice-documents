@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { generateJsonWithGeminiFallback } from "@/lib/gemini-fallback";
 import { loadGoogleSheetVocabulary } from "@/lib/google-sheet-vocabulary";
 import { resolveInterpretedDraft } from "@/lib/master-data";
 
@@ -58,16 +59,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL;
-
-    if (!apiKey || !model) {
-      return NextResponse.json(
-        { error: "Gemini is not configured in Vercel." },
-        { status: 503 },
-      );
-    }
-
     const catalogue = await loadGoogleSheetVocabulary();
     const audioBase64 = Buffer.from(
       await audio.arrayBuffer(),
@@ -103,49 +94,19 @@ export async function POST(request: Request) {
       catalogue,
     ].join("\n");
 
-    const provider = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType: "audio/wav",
-                    data: audioBase64,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0,
+    const parsed = await generateJsonWithGeminiFallback({
+      parts: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: "audio/wav",
+            data: audioBase64,
           },
-        }),
-      },
-    );
+        },
+      ],
+      parse: (content) => responseSchema.parse(JSON.parse(content)),
+    });
 
-    if (!provider.ok) {
-      const providerText = await provider.text();
-      throw new Error(
-        `AI audio provider returned ${provider.status}: ${providerText.slice(0, 500)}`,
-      );
-    }
-
-    const payload = await provider.json();
-    const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!content) {
-      throw new Error("The AI provider returned no audio transcription.");
-    }
-
-    const parsed = responseSchema.parse(JSON.parse(content));
     const resolved = await resolveInterpretedDraft({
       recipientName: parsed.recipientName,
       recipientType: parsed.recipientType,
