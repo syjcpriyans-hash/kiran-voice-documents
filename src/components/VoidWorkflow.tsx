@@ -26,7 +26,7 @@ export function VoidWorkflow() {
       if (data.result.source !== "SYSTEM_LOG") {
         setMessage({ type: "warning", text: "This historical memorandum does not have a safe app audit link, so it cannot be voided automatically." });
       } else if (data.result.voided) {
-        setMessage({ type: "warning", text: `Memo ${data.result.memoNumber} is already void${data.result.voidReason ? `: ${data.result.voidReason}` : "."}` });
+        setMessage({ type: "warning", text: `Memorandum ${data.result.memoNumber} is already voided${data.result.voidReason ? `: ${data.result.voidReason}` : "."}` });
       } else if (data.result.alreadyReturned) {
         setMessage({ type: "warning", text: "This memorandum is already returned and cannot be voided automatically." });
       }
@@ -54,7 +54,7 @@ export function VoidWorkflow() {
       const data = (await response.json()) as { result?: ReturnLookupResult & { message?: string }; error?: string };
       if (!response.ok || !data.result) throw new Error(data.error || "The memorandum could not be voided.");
       setResult(data.result);
-      setMessage({ type: "success", text: data.result.message || `Memo ${data.result.memoNumber} was marked void.` });
+      setMessage({ type: "success", text: data.result.message || `Memorandum ${data.result.memoNumber} was marked voided.` });
       setConfirmed(false);
     } catch (cause) {
       setMessage({ type: "error", text: cause instanceof Error ? cause.message : "The void update failed." });
@@ -75,17 +75,17 @@ export function VoidWorkflow() {
   return (
     <div>
       <div className="notice warning">
-        Voiding never deletes business history. It marks linked MEMO rows as VOID, adds the reason to SHEET1 remarks and keeps the audit record.
+        Voiding never deletes business history. It marks linked memorandum worksheet rows as voided, adds the reason to the tracking worksheet remarks, and keeps the audit record.
       </div>
 
       <div className="field-grid top-gap">
         <div className="field field-wide">
-          <label htmlFor="void-reference">Memo reference</label>
+          <label htmlFor="void-reference">Memorandum reference</label>
           <input
             id="void-reference"
             value={reference}
             onChange={(event) => { setReference(event.target.value); setResult(null); setConfirmed(false); }}
-            placeholder="Enter the internal memo number created by this app"
+            placeholder="Enter the internal memorandum number created by this application"
           />
         </div>
         <div className="field field-wide">
@@ -94,7 +94,7 @@ export function VoidWorkflow() {
             id="void-reason"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Example: Incorrect carat value; replacement memo will be created"
+            placeholder="Example: Incorrect carat value; a replacement memorandum will be created"
           />
         </div>
       </div>
@@ -107,19 +107,19 @@ export function VoidWorkflow() {
 
       {result && (
         <div className="lookup-card top-gap">
-          <div><strong>Memo:</strong> {result.memoNumber}</div>
+          <div><strong>Memorandum number:</strong> {result.memoNumber}</div>
           <div><strong>Recipient:</strong> {result.recipient || "—"}</div>
-          <div><strong>Items:</strong> {result.itemCount}</div>
-          <div><strong>MEMO rows:</strong> {result.memoRows.join(", ") || "No safe link"}</div>
-          <div><strong>SHEET1 rows:</strong> {result.sheet1Rows.join(", ") || "No safe link"}</div>
-          <div><strong>Status:</strong> {result.voided ? "VOID" : result.alreadyReturned ? "RETURNED" : "ACTIVE"}</div>
+          <div><strong>Number of items:</strong> {result.itemCount}</div>
+          <div><strong>Memorandum worksheet rows:</strong> {result.memoRows.join(", ") || "No safe link"}</div>
+          <div><strong>Tracking worksheet rows:</strong> {result.sheet1Rows.join(", ") || "No safe link"}</div>
+          <div><strong>Status:</strong> {result.voided ? "Voided" : result.alreadyReturned ? "Returned" : "Active"}</div>
         </div>
       )}
 
       {safeToVoid && (
         <label className="confirmation-check top-gap">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-          <span>I verified the memo, linked rows and void reason. I understand that a corrected transaction must be created as a new memorandum.</span>
+          <span>I verified the memorandum, linked rows, and void reason. I understand that a corrected transaction must be created as a new memorandum.</span>
         </label>
       )}
 
@@ -132,7 +132,7 @@ export function VoidWorkflow() {
           onClick={voidMemo}
           disabled={busy || !confirmed || reason.trim().length < 3}
         >
-          <Ban size={18} /> {busy ? "Voiding…" : "Mark memorandum VOID"}
+          <Ban size={18} /> {busy ? "Voiding…" : "Mark memorandum as voided"}
         </button>
       )}
     </div>

@@ -58,7 +58,7 @@ export function GoogleSheetStatus() {
           <div>
             <strong>{status.spreadsheetTitle}</strong>
             <div>
-              MEMO and SHEET1 will be updated together before a PDF is downloaded.
+              The memorandum and tracking worksheets will be updated together before the document is downloaded.
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function GoogleSheetStatus() {
           <div className="notice error">
             <TriangleAlert size={18} />
             <div>
-              <strong>Connection not ready</strong>
+              <strong>Connection requires attention</strong>
               <div>{status?.error || "Required worksheets are missing."}</div>
               {status?.missingSheets?.length ? (
                 <div>Missing: {status.missingSheets.join(", ")}</div>

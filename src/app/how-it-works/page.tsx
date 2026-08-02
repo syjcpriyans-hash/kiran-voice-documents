@@ -29,7 +29,7 @@ const steps = [
   {
     icon: Sheet,
     title: "4. Update Google Sheets and download",
-    text: "After confirmation, the system records the transaction in MEMO and SHEET1. The PDF downloads only after Google Sheets confirms the update.",
+    text: "After confirmation, the system records the transaction in the memorandum and tracking worksheets. The document downloads only after Google Sheets confirms the update.",
   },
 ];
 
@@ -108,9 +108,7 @@ export default function HowItWorksPage() {
           <RotateCcw size={24} />
           <h2>Mark returned</h2>
           <p>
-            Open <strong>Mark returned</strong> from the left menu. Enter or
-            speak the memorandum reference, return date and confirmation
-            person. Verify the linked rows before updating Google Sheets.
+            Use the same assistant conversation and say that a memorandum was returned. Include the memorandum reference, return date, and confirmation person. Verify the linked rows before updating Google Sheets.
           </p>
         </article>
 
@@ -119,7 +117,7 @@ export default function HowItWorksPage() {
           <h2>History</h2>
           <p>
             Search previous memorandums by number or recipient. You can reload
-            an old memorandum for PDF regeneration or use it as the starting
+            an old memorandum for document regeneration or use it as the starting
             point for a corrected replacement.
           </p>
         </article>
@@ -138,7 +136,7 @@ export default function HowItWorksPage() {
       <section className="help-warning">
         <strong>Important</strong>
         <p>
-          AI can mishear names, decimal values or prices. The person using the
+          Artificial intelligence can mishear names, decimal values, or prices. The person using the
           system is responsible for checking the complete memorandum before
           updating Google Sheets.
         </p>

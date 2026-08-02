@@ -10,9 +10,9 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Kiran AI Memorandum Assistant",
-  description: "Voice-first memorandum operations connected to Google Sheets",
-  applicationName: "Kiran AI Memorandum Assistant",
+  title: "Kiran Memorandum Assistant",
+  description: "Voice-based memorandum operations connected to Google Sheets",
+  applicationName: "Kiran Memorandum Assistant",
 };
 
 export const viewport: Viewport = {

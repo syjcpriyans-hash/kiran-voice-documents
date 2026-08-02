@@ -2,12 +2,12 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Kiran AI Memorandum Assistant",
+    name: "Kiran Memorandum Assistant",
     short_name: "Kiran Assistant",
-    description: "Voice-first memorandum operations connected to Google Sheets.",
+    description: "Create and manage approval notes using voice and Google Sheets.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f7f8fa",
+    background_color: "#ffffff",
     theme_color: "#005090",
   };
 }

@@ -46,7 +46,7 @@ export function ApprovalNoteEditor({
   useEffect(() => {
     setSerialNumber(initialSerialNumber);
     setHistoricalMode(Boolean(initialSerialNumber));
-    setMessage(initialSerialNumber ? { type: "success", text: `Historical memo ${initialSerialNumber} is loaded for PDF regeneration. Editing any field will create a new draft.` } : null);
+    setMessage(initialSerialNumber ? { type: "success", text: `Historical memorandum ${initialSerialNumber} is loaded for document regeneration. Editing any field will create a new draft.` } : null);
   }, [initialSerialNumber]);
 
   useEffect(() => {
@@ -177,7 +177,7 @@ export function ApprovalNoteEditor({
       if (!response.ok || !data.document) throw new Error(data.error || "The document could not be recorded.");
       flushSync(() => setSerialNumber(data.document!.serial_number));
       await createPdf(data.document.serial_number);
-      setMessage({ type: "success", text: `Memo ${data.document.memo_number} was written to MEMO rows ${data.document.memo_rows} and SHEET1 rows ${data.document.sheet1_rows}, then downloaded as a PDF.` });
+      setMessage({ type: "success", text: `Memorandum ${data.document.memo_number} was written to memorandum worksheet rows ${data.document.memo_rows} and tracking worksheet rows ${data.document.sheet1_rows}, then downloaded as a document.` });
     } catch (cause) {
       setMessage({ type: "error", text: cause instanceof Error ? cause.message : "Document generation failed." });
     } finally {
@@ -191,7 +191,7 @@ export function ApprovalNoteEditor({
     try {
       await createPdf(serialNumber);
     } catch (cause) {
-      setMessage({ type: "error", text: cause instanceof Error ? cause.message : "PDF generation failed." });
+      setMessage({ type: "error", text: cause instanceof Error ? cause.message : "Document generation failed." });
     } finally {
       setBusy(false);
     }
@@ -238,7 +238,7 @@ export function ApprovalNoteEditor({
             </div>
             <div className="cert-box">CERTIFICATION LOGOS<br />LOCKED TEMPLATE AREA</div>
           </header>
-          <div className="system-reference">Memo No.: {serialNumber || "Generated after confirmation"}</div>
+          <div className="system-reference">Memorandum number: {serialNumber || "Generated after confirmation"}</div>
           <div className="meta-row"><div>To:</div><div className="dot-line">{draft.recipientName} {draft.recipientType !== "Other" ? `(${draft.recipientType})` : ""}</div><div>Date:</div><div className="dot-line">{formatApprovalDate(draft.date)}</div></div>
           <div className="meta-row through-row"><div>Through:</div><div className="dot-line">{draft.through}</div></div>
           <table className="approval-table">
@@ -255,7 +255,7 @@ export function ApprovalNoteEditor({
       </div>
 
       <div className="editor-card">
-        <div className="editor-heading"><div><h3>Edit extracted product rows</h3><p className="muted">Names and terminology are suggested from CUT. MASTER and MEMO. New values are still allowed after review.</p></div><button type="button" className="btn btn-secondary" onClick={addItem} disabled={draft.items.length >= 8 || busy}><Plus size={17} /> Add row</button></div>
+        <div className="editor-heading"><div><h3>Edit extracted product rows</h3><p className="muted">Names and terminology are suggested from the master-data and memorandum worksheets. New values are still allowed after review.</p></div><button type="button" className="btn btn-secondary" onClick={addItem} disabled={draft.items.length >= 8 || busy}><Plus size={17} /> Add row</button></div>
         <div className="item-editor"><table className="item-table"><thead><tr><th>Size</th><th>Description</th><th>Carats</th><th>Asking price</th><th>Remarks</th><th aria-label="Remove row" /></tr></thead><tbody>{draft.items.map((item) => <tr key={item.id}>
           <td><input list="size-master" value={item.size} onChange={(event) => updateItem(item.id, { size: event.target.value })} /></td>
           <td><input list="description-master" value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} onBlur={() => updateItem(item.id, { description: formatDiamondDescription(item.description) })} /></td>
@@ -275,8 +275,8 @@ export function ApprovalNoteEditor({
 
       {message && <div className={`notice ${message.type} top-gap`}>{message.text}</div>}
       <div className="generation-actions">
-        {!historicalMode && <button type="button" className="btn btn-success btn-large" onClick={generateRecordAndDownload} disabled={busy || !checkedNames || !checkedNumbers}><Save size={19} /> {busy ? "Updating Google Sheet…" : "Update Google Sheet & download PDF"}</button>}
-        <button type="button" className="btn btn-secondary" onClick={downloadRecordedPdf} disabled={busy || !serialNumber}><Download size={18} /> Download PDF</button>
+        {!historicalMode && <button type="button" className="btn btn-success btn-large" onClick={generateRecordAndDownload} disabled={busy || !checkedNames || !checkedNumbers}><Save size={19} /> {busy ? "Updating Google Sheets…" : "Update Google Sheets and download document"}</button>}
+        <button type="button" className="btn btn-secondary" onClick={downloadRecordedPdf} disabled={busy || !serialNumber}><Download size={18} /> Download document</button>
         <button type="button" className="btn btn-secondary" onClick={() => window.print()} disabled={busy}><Printer size={18} /> Print preview</button>
       </div>
     </div>

@@ -59,7 +59,7 @@ export function DocumentHistory({
     <div>
       <div className="history-toolbar">
         <div className="field history-search">
-          <label htmlFor="history-query">Search memo number, recipient or confirmation person</label>
+          <label htmlFor="history-query">Search memorandum number, recipient, or confirmation person</label>
           <input id="history-query" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void load(query); }} />
         </div>
         <div className="actions">
@@ -79,13 +79,13 @@ export function DocumentHistory({
         {records.map((record) => (
           <article className="history-card" key={record.requestId}>
             <div>
-              <div className="history-title"><History size={17} /> Memo {record.memoNumber}</div>
-              <div className="muted">{record.recipient || "Unknown recipient"} · {record.totalCarats.toFixed(2)} Cts.</div>
+              <div className="history-title"><History size={17} /> Memorandum {record.memoNumber}</div>
+              <div className="muted">{record.recipient || "Unknown recipient"} · {record.totalCarats.toFixed(2)} carats</div>
               <div className="history-meta">Created: {record.createdAt || "—"}</div>
-              <div className="history-meta">Status: {record.voidStatus === "VOID" || record.status === "VOID" ? `VOID${record.voidReason ? ` — ${record.voidReason}` : ""}` : `${record.returnedStatus || "OUTSTANDING"}${record.confirmPerson ? ` · Confirmed by ${record.confirmPerson}` : ""}`}</div>
+              <div className="history-meta">Status: {record.voidStatus === "VOID" || record.status === "VOID" ? `Voided${record.voidReason ? ` — ${record.voidReason}` : ""}` : `${record.returnedStatus === "RETURNED" ? "Returned" : "Outstanding"}${record.confirmPerson ? ` · Confirmed by ${record.confirmPerson}` : ""}`}</div>
             </div>
             <button type="button" className="btn btn-secondary" onClick={() => loadRecord(record)} disabled={!record.document}>
-              Load for PDF / correction
+              Open for document download or correction
             </button>
           </article>
         ))}

@@ -4,7 +4,7 @@ import { ArrowUp, Mic, Square, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 const languages = [
-  { value: "auto-mixed", label: "Automatic / Mixed language" },
+  { value: "auto-mixed", label: "Automatic or mixed language" },
   { value: "gu-IN", label: "Gujarati" },
   { value: "hi-IN", label: "Hindi" },
   { value: "en-IN", label: "Indian English" },
@@ -302,15 +302,13 @@ export function VoiceCapture({
 
   return (
     <div className="assistant-composer">
-      <div className="composer-header composer-header-status-only">
-        <span className={`composer-status ${recording ? "recording" : processing ? "processing" : ""}`}>
-          {recording
-            ? `Recording ${seconds}s`
-            : processing
-              ? "Sent"
-              : "Ready"}
-        </span>
-      </div>
+      {recording && (
+        <div className="composer-header composer-header-status-only">
+          <span className="composer-status recording">
+            Recording: {seconds} {seconds === 1 ? "second" : "seconds"}
+          </span>
+        </div>
+      )}
 
       {!supported && (
         <div className="notice error composer-notice">
@@ -333,7 +331,7 @@ export function VoiceCapture({
             }
           }
         }}
-        placeholder="Message Kiran Assistant…"
+        placeholder="Write a message to Kiran Assistant…"
         disabled={recording}
         rows={3}
       />
@@ -384,7 +382,7 @@ export function VoiceCapture({
             className="composer-send"
             onClick={interpretTypedText}
             disabled={processing || recording || !transcript.trim()}
-            aria-label="Interpret instruction"
+            aria-label="Send instruction"
           >
             <ArrowUp size={22} />
           </button>
