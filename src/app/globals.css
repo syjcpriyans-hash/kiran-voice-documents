@@ -1745,3 +1745,396 @@ textarea,
     gap: 1.5px;
   }
 }
+
+
+/* -------------------------------------------------------------------------- */
+/* Fixed composer and user-guide page                                         */
+/* -------------------------------------------------------------------------- */
+
+.chat-main .assistant-thread {
+  padding-bottom: 245px;
+}
+
+.composer-dock {
+  position: fixed !important;
+  left: 282px;
+  right: 0;
+  bottom: 0;
+  z-index: 52;
+  width: auto;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 14px 24px 9px;
+  display: grid;
+  justify-items: center;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, .94) 25%,
+      #ffffff 55%
+    );
+}
+
+.composer-dock .assistant-composer,
+.composer-dock .assistant-disclaimer {
+  width: min(900px, 100%);
+}
+
+.composer-header-status-only {
+  min-height: 31px;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
+
+.composer-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.composer-left-controls {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-language {
+  min-width: 0;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 7px !important;
+}
+
+.composer-language label {
+  flex: 0 0 auto;
+}
+
+.composer-language select {
+  width: auto;
+  max-width: 220px;
+}
+
+.composer-help {
+  display: none !important;
+}
+
+.sidebar-navigation a.sidebar-help-link {
+  width: 100%;
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: #465164;
+  font-size: .84rem;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+}
+
+.sidebar-navigation a.sidebar-help-link:hover {
+  background: #e8ebee;
+}
+
+.help-page {
+  min-height: 100vh;
+  padding: 28px clamp(18px, 5vw, 72px) 70px;
+  color: #172033;
+  background:
+    radial-gradient(circle at top right, rgba(0, 80, 144, .09), transparent 28rem),
+    #f7f9fb;
+}
+
+.help-header,
+.help-hero,
+.help-steps,
+.help-section,
+.help-operation-grid,
+.help-warning {
+  width: min(1080px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.help-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #005090;
+  font-size: .86rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.help-back-link:hover {
+  text-decoration: underline;
+}
+
+.help-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.help-brand img {
+  width: 75px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.help-brand strong,
+.help-brand span {
+  display: block;
+}
+
+.help-brand strong {
+  font-size: .86rem;
+}
+
+.help-brand span {
+  margin-top: 2px;
+  color: #788394;
+  font-size: .7rem;
+}
+
+.help-hero {
+  padding: 82px 0 52px;
+  text-align: center;
+}
+
+.help-kicker {
+  color: #005a98;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.help-hero h1 {
+  max-width: 760px;
+  margin: 13px auto 16px;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1.08;
+}
+
+.help-hero p {
+  max-width: 720px;
+  margin: 0 auto;
+  color: #687386;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.help-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.help-step-card,
+.help-section,
+.help-operation-card,
+.help-warning {
+  border: 1px solid #dde4eb;
+  background: #ffffff;
+  box-shadow: 0 14px 38px rgba(31, 49, 72, .07);
+}
+
+.help-step-card {
+  display: flex;
+  gap: 16px;
+  padding: 23px;
+  border-radius: 18px;
+}
+
+.help-step-icon,
+.help-operation-card > svg,
+.help-section-heading > svg {
+  color: #005a98;
+}
+
+.help-step-icon {
+  width: 45px;
+  height: 45px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  background: #e6f1f8;
+}
+
+.help-step-card h2,
+.help-section h2,
+.help-operation-card h2 {
+  margin-bottom: 7px;
+  font-size: 1rem;
+}
+
+.help-step-card p,
+.help-section p,
+.help-operation-card p,
+.help-warning p {
+  margin-bottom: 0;
+  color: #687386;
+  font-size: .88rem;
+  line-height: 1.65;
+}
+
+.help-section {
+  margin-top: 22px;
+  padding: clamp(22px, 4vw, 36px);
+  border-radius: 20px;
+}
+
+.help-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.help-section-heading h2 {
+  margin-bottom: 3px;
+  font-size: 1.3rem;
+}
+
+.help-example {
+  padding: 17px 19px;
+  border-left: 4px solid #005a98;
+  border-radius: 10px;
+  background: #eef6fb;
+}
+
+.help-example strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #004675;
+  font-size: .82rem;
+}
+
+.help-check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+  margin-top: 20px;
+}
+
+.help-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #445166;
+  font-size: .84rem;
+}
+
+.help-check svg {
+  flex: 0 0 auto;
+  color: #23815e;
+}
+
+.help-operation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.help-operation-card {
+  padding: 23px;
+  border-radius: 18px;
+}
+
+.help-operation-card > svg {
+  margin-bottom: 15px;
+}
+
+.help-warning {
+  margin-top: 22px;
+  padding: 20px 23px;
+  border-color: #ead39a;
+  border-radius: 16px;
+  background: #fff8e8;
+}
+
+.help-warning strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #7d5412;
+}
+
+@media (max-width: 900px) {
+  .chat-main .assistant-thread {
+    padding-bottom: 230px;
+  }
+
+  .composer-dock {
+    left: 0;
+    padding: 10px 10px 7px;
+  }
+
+  .help-steps,
+  .help-operation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .help-header {
+    align-items: flex-start;
+  }
+
+  .help-brand {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .chat-main .assistant-thread {
+    padding-bottom: 250px;
+  }
+
+  .composer-dock {
+    padding-inline: 7px;
+  }
+
+  .composer-left-controls {
+    gap: 4px;
+  }
+
+  .composer-language label {
+    display: none;
+  }
+
+  .composer-language select {
+    max-width: 170px;
+    font-size: .7rem;
+  }
+
+  .composer-clear span {
+    display: none;
+  }
+
+  .help-page {
+    padding-inline: 14px;
+  }
+
+  .help-hero {
+    padding-top: 55px;
+  }
+
+  .help-check-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .composer-dock {
+    display: none !important;
+  }
+}

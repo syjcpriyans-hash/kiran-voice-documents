@@ -2,6 +2,7 @@
 
 import {
   Ban,
+  BookOpen,
   History as HistoryIcon,
   Menu,
   MessageCircle,
@@ -308,6 +309,18 @@ export default function Home() {
             <Ban size={19} />
             <span>Void / Correct</span>
           </button>
+
+          <div className="sidebar-divider" />
+
+          <a
+            href="/how-it-works"
+            target="_blank"
+            rel="noreferrer"
+            className="sidebar-help-link"
+          >
+            <BookOpen size={19} />
+            <span>How this system works</span>
+          </a>
         </nav>
 
         <div className="sidebar-footer">

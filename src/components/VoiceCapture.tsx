@@ -302,22 +302,7 @@ export function VoiceCapture({
 
   return (
     <div className="assistant-composer">
-      <div className="composer-header">
-        <div className="composer-language">
-          <label htmlFor="speech-language">Language</label>
-          <select
-            id="speech-language"
-            value={language}
-            onChange={(event) => setLanguage(event.target.value)}
-            disabled={recording || processing}
-          >
-            {languages.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="composer-header composer-header-status-only">
         <span className={`composer-status ${recording ? "recording" : processing ? "processing" : ""}`}>
           {recording
             ? `Recording ${seconds}s`
@@ -354,22 +339,34 @@ export function VoiceCapture({
       />
 
       <div className="composer-toolbar">
-        <button
-          type="button"
-          className="composer-clear"
-          onClick={clearAll}
-          disabled={processing || recording || !transcript}
-          aria-label="Clear instruction"
-        >
-          <Trash2 size={17} />
-          <span>Clear</span>
-        </button>
+        <div className="composer-left-controls">
+          <div className="composer-language">
+            <label htmlFor="speech-language">Language</label>
+            <select
+              id="speech-language"
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+              disabled={recording || processing}
+            >
+              {languages.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <span className="composer-help">
-          {recording
-            ? "Speak naturally, then tap stop"
-            : "Gujarati · Hindi · English · Mixed"}
-        </span>
+          <button
+            type="button"
+            className="composer-clear"
+            onClick={clearAll}
+            disabled={processing || recording || !transcript}
+            aria-label="Clear instruction"
+          >
+            <Trash2 size={17} />
+            <span>Clear</span>
+          </button>
+        </div>
 
         <div className="composer-actions">
           <button
