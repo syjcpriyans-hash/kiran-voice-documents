@@ -973,3 +973,186 @@ body {
     background: white;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Kiran conversational UI refinement                                         */
+/* -------------------------------------------------------------------------- */
+
+.assistant-thread {
+  padding-bottom: 190px;
+}
+
+.chat-message.user-message {
+  justify-content: flex-end;
+  max-width: 850px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.user-bubble {
+  max-width: min(78%, 680px);
+  padding: 12px 16px;
+  border: 1px solid #dce2e8;
+  border-radius: 20px 20px 6px 20px;
+  color: #1d2939;
+  background: #edf1f5;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-message.assistant-message {
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.assistant-message .chat-avatar {
+  margin-top: 1px;
+}
+
+.assistant-alert {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.composer-dock {
+  padding-bottom: 3px;
+}
+
+.assistant-composer {
+  border-radius: 26px;
+}
+
+.assistant-input {
+  min-height: 72px;
+  max-height: 180px;
+  resize: none;
+}
+
+.assistant-result-card {
+  width: 100%;
+}
+
+.assistant-result-card .document-frame {
+  width: 100%;
+  overflow: hidden;
+  padding: clamp(8px, 1.6vw, 18px);
+}
+
+.assistant-result-card .approval-note {
+  width: 100%;
+  max-width: 1120px;
+  min-width: 0;
+  min-height: auto;
+  margin-inline: auto;
+  padding: clamp(10px, 2.1vw, 24px) clamp(12px, 2.5vw, 28px);
+}
+
+.assistant-result-card .note-header {
+  grid-template-columns: minmax(70px, 12%) minmax(0, 1fr) minmax(120px, 23%);
+  gap: clamp(7px, 1.6vw, 18px);
+}
+
+.assistant-result-card .kiran-logo {
+  width: 100%;
+  max-width: 100px;
+  height: auto;
+  min-height: 60px;
+  aspect-ratio: 1.08 / 1;
+  font-size: clamp(26px, 4.8vw, 58px);
+}
+
+.assistant-result-card .note-title {
+  font-size: clamp(7px, 1.05vw, 14px);
+}
+
+.assistant-result-card .company-name {
+  font-size: clamp(9px, 1.5vw, 19px);
+}
+
+.assistant-result-card .company-lines {
+  font-size: clamp(6px, 1.05vw, 13px);
+}
+
+.assistant-result-card .cert-box {
+  min-height: clamp(44px, 7vw, 72px);
+  font-size: clamp(5px, .8vw, 10px);
+}
+
+.assistant-result-card .meta-row {
+  grid-template-columns: clamp(28px, 4vw, 48px) 1fr clamp(28px, 4vw, 48px) minmax(100px, 18%);
+  gap: clamp(3px, .8vw, 8px);
+  font-size: clamp(7px, 1.3vw, 16px);
+}
+
+.assistant-result-card .through-row {
+  grid-template-columns: clamp(44px, 6vw, 70px) 1fr;
+}
+
+.assistant-result-card .dot-line {
+  min-height: clamp(18px, 2.5vw, 28px);
+  padding: 2px clamp(3px, .7vw, 8px);
+}
+
+.assistant-result-card .approval-table {
+  font-size: clamp(6px, 1.15vw, 15px);
+}
+
+.assistant-result-card .approval-table th {
+  font-size: clamp(5px, .9vw, 12px);
+}
+
+.assistant-result-card .approval-table th,
+.assistant-result-card .approval-table td {
+  height: clamp(24px, 4vw, 46px);
+  padding: clamp(3px, .7vw, 8px) clamp(2px, .6vw, 7px);
+}
+
+.assistant-result-card .approval-table td.description-cell {
+  padding-left: clamp(5px, 1.6vw, 18px);
+}
+
+.assistant-result-card .note-footer {
+  min-height: clamp(56px, 8vw, 95px);
+  gap: clamp(7px, 2vw, 22px);
+}
+
+.assistant-result-card .signature-block {
+  font-size: clamp(5px, .9vw, 12px);
+}
+
+.assistant-result-card .total-block {
+  gap: clamp(4px, 1vw, 12px);
+  font-size: clamp(10px, 1.8vw, 22px);
+}
+
+@media (max-width: 760px) {
+  .assistant-thread {
+    padding-bottom: 172px;
+  }
+
+  .user-bubble {
+    max-width: 88%;
+  }
+
+  .assistant-result-card .document-frame {
+    margin-inline: 0;
+    padding: 6px;
+  }
+
+  .assistant-result-card .approval-note {
+    border-width: 1px;
+  }
+
+  .assistant-result-card .note-header {
+    grid-template-columns: 10% minmax(0, 1fr) 21%;
+  }
+
+  .assistant-result-card .system-reference {
+    font-size: 5px;
+  }
+}

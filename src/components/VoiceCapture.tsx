@@ -121,7 +121,6 @@ export function VoiceCapture({
   const [processing, setProcessing] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
-  const [warnings, setWarnings] = useState<string[]>([]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -161,7 +160,6 @@ export function VoiceCapture({
 
   async function startRecording() {
     setError("");
-    setWarnings([]);
     setSeconds(0);
 
     if (!supported) {
@@ -258,9 +256,8 @@ export function VoiceCapture({
         throw new Error("The recording is too long. Keep each instruction under 60 seconds.");
       }
 
-      const result = await onInterpretAudio(wav, language);
-      setTranscript(result.transcript);
-      setWarnings(result.warnings);
+      await onInterpretAudio(wav, language);
+      setTranscript("");
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -277,10 +274,10 @@ export function VoiceCapture({
 
     setProcessing(true);
     setError("");
-    setWarnings([]);
 
     try {
       await onInterpretText(transcript.trim());
+      setTranscript("");
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -294,7 +291,6 @@ export function VoiceCapture({
 
   function clearAll() {
     setTranscript("");
-    setWarnings([]);
     setError("");
   }
 
@@ -333,22 +329,20 @@ export function VoiceCapture({
 
       {error && <div className="notice error composer-notice">{error}</div>}
 
-      {warnings.length > 0 && (
-        <div className="notice warning composer-notice">
-          <strong>Please verify these uncertain details:</strong>
-          <ul>
-            {warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <textarea
         className="transcript assistant-input"
         value={transcript}
         onChange={(event) => setTranscript(event.target.value)}
-        placeholder="Speak or type your memorandum instruction…"
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            if (!processing && !recording && transcript.trim()) {
+              void interpretTypedText();
+            }
+          }
+        }}
+        placeholder="Message Kiran Assistant…"
         disabled={recording}
         rows={3}
       />

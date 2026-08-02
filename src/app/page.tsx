@@ -41,6 +41,7 @@ export default function Home() {
   const [loadedMemoNumber, setLoadedMemoNumber] = useState("");
   const [interpretationMessage, setInterpretationMessage] = useState("");
   const [interpretationWarnings, setInterpretationWarnings] = useState<string[]>([]);
+  const [lastUserMessage, setLastUserMessage] = useState("");
 
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? "hidden" : "";
@@ -78,13 +79,15 @@ export default function Home() {
   }
 
   async function interpretText(text: string) {
+    const cleanText = text.trim();
+    setLastUserMessage(cleanText);
     setInterpretationMessage("");
     setInterpretationWarnings([]);
 
     const response = await fetch("/api/interpret", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transcript: text }),
+      body: JSON.stringify({ transcript: cleanText }),
     });
 
     const data = (await response.json()) as {
@@ -134,6 +137,7 @@ export default function Home() {
       );
     }
 
+    setLastUserMessage(data.transcript);
     applyInterpretedDraft(data.draft);
     setInterpretationWarnings(data.warnings || []);
     setInterpretationMessage(
@@ -166,6 +170,7 @@ export default function Home() {
       `Historical memo ${memoNumber} is ready. Download it again, or edit any field to create a corrected replacement draft.`,
     );
     setInterpretationWarnings([]);
+    setLastUserMessage("");
     setView("assistant");
     setTask("create");
     setDrawerOpen(false);
@@ -177,6 +182,7 @@ export default function Home() {
     setLoadedMemoNumber("");
     setInterpretationMessage("");
     setInterpretationWarnings([]);
+    setLastUserMessage("");
     openAssistant("create");
   }
 
@@ -336,6 +342,12 @@ export default function Home() {
                       <span>Add multiple diamond rows</span>
                       <span>Use different prices for each item</span>
                     </div>
+                  </div>
+                )}
+
+                {lastUserMessage && (
+                  <div className="chat-message user-message">
+                    <div className="user-bubble">{lastUserMessage}</div>
                   </div>
                 )}
 
