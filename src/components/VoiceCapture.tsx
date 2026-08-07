@@ -2,6 +2,7 @@
 
 import { ArrowUp, Mic, Square, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const languages = [
   { value: "auto-mixed", label: "Automatic or mixed language" },
@@ -136,6 +137,7 @@ export function VoiceCapture({
   const chunksRef = useRef<Float32Array[]>([]);
   const timerRef = useRef<number | null>(null);
   const maxTimerRef = useRef<number | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const supported = useMemo(
     () =>
@@ -279,6 +281,18 @@ export function VoiceCapture({
     }
   }
 
+  function resetTextareaHeight() {
+    window.requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.style.height = "44px";
+    });
+  }
+
+  function resizeTextarea(element: HTMLTextAreaElement) {
+    element.style.height = "44px";
+    element.style.height = `${Math.min(Math.max(element.scrollHeight, 44), 120)}px`;
+  }
+
   async function interpretTypedText() {
     const instruction = transcript.trim();
     if (!instruction) return;
@@ -287,11 +301,15 @@ export function VoiceCapture({
     setProcessingKind("text");
     setError("");
     setTranscript("");
+    resetTextareaHeight();
 
     try {
       await onInterpretText(instruction);
     } catch (cause) {
       setTranscript(instruction);
+      window.requestAnimationFrame(() => {
+        if (textareaRef.current) resizeTextarea(textareaRef.current);
+      });
       setError(
         cause instanceof Error
           ? cause.message
@@ -306,27 +324,47 @@ export function VoiceCapture({
   function clearAll() {
     setTranscript("");
     setError("");
+    resetTextareaHeight();
   }
 
+  const conversationStream =
+    typeof document !== "undefined"
+      ? document.querySelector(".conversation-stream")
+      : null;
+
   return (
-    <div className="assistant-composer">
+    <>
+      {processingKind === "text" &&
+        conversationStream &&
+        createPortal(
+          <div
+            className="chat-message assistant-message typed-thinking-message"
+            aria-live="polite"
+          >
+            <div className="chat-avatar">K</div>
+            <div className="assistant-message-copy">
+              <strong>Kiran Assistant</strong>
+              <div className="typed-thinking-copy">
+                <span>Thinking</span>
+                <span
+                  className="thinking-dots"
+                  aria-label="Kiran Assistant is thinking"
+                >
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              </div>
+            </div>
+          </div>,
+          conversationStream,
+        )}
+
+      <div className="assistant-composer">
       {recording && (
         <div className="composer-header composer-header-status-only">
           <span className="composer-status recording">
             Recording: {seconds} {seconds === 1 ? "second" : "seconds"}
-          </span>
-        </div>
-      )}
-
-      {processingKind === "text" && (
-        <div className="composer-header composer-header-status-only" aria-live="polite">
-          <span className="composer-status">
-            Thinking
-            <span className="thinking-dots" aria-label="Kiran Assistant is thinking">
-              <i />
-              <i />
-              <i />
-            </span>
           </span>
         </div>
       )}
@@ -340,9 +378,13 @@ export function VoiceCapture({
       {error && <div className="notice error composer-notice">{error}</div>}
 
       <textarea
+        ref={textareaRef}
         className="transcript assistant-input"
         value={transcript}
-        onChange={(event) => setTranscript(event.target.value)}
+        onChange={(event) => {
+          setTranscript(event.target.value);
+          resizeTextarea(event.currentTarget);
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
@@ -353,7 +395,7 @@ export function VoiceCapture({
         }}
         placeholder="Write a message to Kiran Assistant…"
         disabled={recording || processing}
-        rows={3}
+        rows={1}
       />
 
       <div className="composer-toolbar">
@@ -408,6 +450,61 @@ export function VoiceCapture({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+
+      <style jsx global>{`
+        .composer-dock .assistant-composer {
+          border-radius: 18px;
+        }
+
+        .composer-dock .assistant-input {
+          min-height: 44px !important;
+          height: 44px;
+          max-height: 120px !important;
+          padding: 11px 15px 4px;
+          line-height: 1.4;
+          resize: none !important;
+          overflow-y: auto;
+        }
+
+        .composer-dock .composer-toolbar {
+          padding: 5px 10px 8px;
+          gap: 8px;
+        }
+
+        .composer-dock .composer-mic,
+        .composer-dock .composer-send {
+          width: 38px;
+          height: 38px;
+        }
+
+        .typed-thinking-message {
+          margin-top: 2px;
+          margin-bottom: 6px;
+          align-items: flex-start;
+        }
+
+        .typed-thinking-copy {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 24px;
+          color: #475467;
+          font-size: 0.92rem;
+        }
+
+        @media (max-width: 650px) {
+          .composer-dock .assistant-input {
+            min-height: 42px !important;
+            height: 42px;
+            padding-top: 10px;
+          }
+
+          .composer-dock .composer-toolbar {
+            padding: 4px 8px 7px;
+          }
+        }
+      `}</style>
+    </>
   );
 }
