@@ -1,4 +1,9 @@
-import { createSign } from "node:crypto";
+import { createHash, createSign } from "node:crypto";
+import { getActiveSheetConnection } from "@/lib/sheet-connection";
+import {
+  getStoredOAuthSession,
+  refreshGoogleAccessToken,
+} from "@/lib/google-oauth";
 
 const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -9,7 +14,7 @@ type TokenCache = {
   expiresAt: number;
 };
 
-let tokenCache: TokenCache | null = null;
+const legacyTokenCache = new Map<string, TokenCache>();
 
 export type GoogleSheetProperties = {
   sheetId: number;
@@ -39,28 +44,33 @@ function base64Url(value: string | Buffer): string {
     .replaceAll("=", "");
 }
 
-function getGoogleConfig() {
+function getLegacyGoogleConfig() {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID?.trim();
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n").trim();
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     throw new Error(
-      "Google Sheets is not configured. Add GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY in Vercel.",
+      "No Google Sheet is connected. Use Connect Google Sheet, or configure the legacy service-account variables.",
     );
   }
 
   return { spreadsheetId, clientEmail, privateKey };
 }
 
-async function getAccessToken(): Promise<string> {
+async function getLegacyAccessToken(): Promise<string> {
+  const { clientEmail, privateKey } = getLegacyGoogleConfig();
+  const cacheKey = createHash("sha256")
+    .update(`${clientEmail}:${privateKey.slice(0, 40)}`)
+    .digest("hex")
+    .slice(0, 24);
   const now = Math.floor(Date.now() / 1000);
+  const cached = legacyTokenCache.get(cacheKey);
 
-  if (tokenCache && tokenCache.expiresAt > now + 60) {
-    return tokenCache.accessToken;
+  if (cached && cached.expiresAt > now + 60) {
+    return cached.accessToken;
   }
 
-  const { clientEmail, privateKey } = getGoogleConfig();
   const encodedHeader = base64Url(
     JSON.stringify({
       alg: "RS256",
@@ -113,23 +123,50 @@ async function getAccessToken(): Promise<string> {
     throw new Error("Google authentication returned no access token.");
   }
 
-  tokenCache = {
+  legacyTokenCache.set(cacheKey, {
     accessToken: token.access_token,
     expiresAt: now + (token.expires_in || 3600),
-  };
+  });
 
   return token.access_token;
 }
 
+async function activeContext(): Promise<{
+  spreadsheetId: string;
+  accessToken: string;
+}> {
+  const connection = await getActiveSheetConnection();
+
+  if (connection.mode === "oauth") {
+    const session = await getStoredOAuthSession();
+    if (!session?.refreshToken) {
+      throw new Error(
+        "The connected Google account is missing. Reconnect the Google Sheet.",
+      );
+    }
+
+    return {
+      spreadsheetId: connection.config.spreadsheetId,
+      accessToken: await refreshGoogleAccessToken(session.refreshToken),
+    };
+  }
+
+  const legacy = getLegacyGoogleConfig();
+  return {
+    spreadsheetId: legacy.spreadsheetId,
+    accessToken: await getLegacyAccessToken(),
+  };
+}
+
 async function googleRequest<T>(
   url: string,
+  accessToken: string,
   init: RequestInit = {},
 ): Promise<T> {
   const retryableStatuses = new Set([429, 500, 502, 503, 504]);
   let lastError = "Google Sheets request failed.";
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const accessToken = await getAccessToken();
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${accessToken}`);
 
@@ -144,16 +181,12 @@ async function googleRequest<T>(
     });
 
     if (response.ok) {
-      return (await response.json()) as T;
+      const text = await response.text();
+      return (text ? JSON.parse(text) : {}) as T;
     }
 
     const detail = await response.text();
     lastError = `Google Sheets returned ${response.status}: ${detail.slice(0, 700)}`;
-
-    if (response.status === 401 && attempt === 0) {
-      tokenCache = null;
-      continue;
-    }
 
     if (!retryableStatuses.has(response.status) || attempt === 3) {
       throw new Error(lastError);
@@ -168,7 +201,11 @@ async function googleRequest<T>(
 }
 
 export function getSpreadsheetId(): string {
-  return getGoogleConfig().spreadsheetId;
+  return getLegacyGoogleConfig().spreadsheetId;
+}
+
+export async function getActiveSpreadsheetId(): Promise<string> {
+  return (await getActiveSheetConnection()).config.spreadsheetId;
 }
 
 export function quoteSheetName(title: string): string {
@@ -176,14 +213,17 @@ export function quoteSheetName(title: string): string {
 }
 
 export async function getSpreadsheetMetadata(): Promise<GoogleSpreadsheetMetadata> {
-  const spreadsheetId = getSpreadsheetId();
+  const { spreadsheetId, accessToken } = await activeContext();
   const url = new URL(`${SHEETS_API}/spreadsheets/${spreadsheetId}`);
   url.searchParams.set(
     "fields",
     "spreadsheetId,properties.title,sheets.properties(sheetId,title,hidden,gridProperties(rowCount,columnCount))",
   );
 
-  return googleRequest<GoogleSpreadsheetMetadata>(url.toString());
+  return googleRequest<GoogleSpreadsheetMetadata>(
+    url.toString(),
+    accessToken,
+  );
 }
 
 export async function getSheetValues(
@@ -193,7 +233,7 @@ export async function getSheetValues(
     dateTimeRenderOption?: "SERIAL_NUMBER" | "FORMATTED_STRING";
   } = {},
 ): Promise<unknown[][]> {
-  const spreadsheetId = getSpreadsheetId();
+  const { spreadsheetId, accessToken } = await activeContext();
   const encodedRange = encodeURIComponent(range);
   const url = new URL(
     `${SHEETS_API}/spreadsheets/${spreadsheetId}/values/${encodedRange}`,
@@ -207,7 +247,10 @@ export async function getSheetValues(
     options.dateTimeRenderOption || "FORMATTED_STRING",
   );
 
-  const response = await googleRequest<{ values?: unknown[][] }>(url.toString());
+  const response = await googleRequest<{ values?: unknown[][] }>(
+    url.toString(),
+    accessToken,
+  );
   return response.values || [];
 }
 
@@ -217,10 +260,11 @@ export async function batchUpdateSpreadsheet(
   spreadsheetId: string;
   replies?: unknown[];
 }> {
-  const spreadsheetId = getSpreadsheetId();
+  const { spreadsheetId, accessToken } = await activeContext();
 
   return googleRequest(
     `${SHEETS_API}/spreadsheets/${spreadsheetId}:batchUpdate`,
+    accessToken,
     {
       method: "POST",
       body: JSON.stringify({
@@ -239,5 +283,16 @@ export function findSheet(
     metadata.sheets
       ?.map((sheet) => sheet.properties)
       .find((sheet) => sheet.title === title) || null
+  );
+}
+
+export function findSheetById(
+  metadata: GoogleSpreadsheetMetadata,
+  sheetId: number,
+): GoogleSheetProperties | null {
+  return (
+    metadata.sheets
+      ?.map((sheet) => sheet.properties)
+      .find((sheet) => sheet.sheetId === sheetId) || null
   );
 }

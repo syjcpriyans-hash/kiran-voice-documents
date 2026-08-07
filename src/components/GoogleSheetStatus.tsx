@@ -1,13 +1,19 @@
 "use client";
 
-import { CheckCircle2, FileSpreadsheet, RefreshCw, TriangleAlert } from "lucide-react";
+import {
+  CheckCircle2,
+  FileSpreadsheet,
+  Link2,
+  RefreshCw,
+  TriangleAlert,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 type StatusResponse = {
   connected?: boolean;
+  authorized?: boolean;
+  mode?: "oauth" | "legacy" | "none";
   spreadsheetTitle?: string;
-  sheets?: string[];
-  missingSheets?: string[];
   error?: string;
 };
 
@@ -39,53 +45,57 @@ export function GoogleSheetStatus() {
   }, [checkConnection]);
 
   return (
-    <div className="voice-card">
-      <div className="upload-icon">
-        <FileSpreadsheet size={34} />
+    <div className="sidebar-sheet-status">
+      <div className="sidebar-sheet-status-title">
+        <FileSpreadsheet size={18} />
+        <span>
+          {loading
+            ? "Checking Google Sheet…"
+            : status?.connected
+              ? "Google Sheet connected"
+              : "Connect Google Sheet"}
+        </span>
       </div>
 
-      <h3>
-        {loading
-          ? "Checking Google Sheet…"
-          : status?.connected
-            ? "Google Sheet connected"
-            : "Google Sheet needs attention"}
-      </h3>
-
       {status?.connected ? (
-        <div className="notice success">
-          <CheckCircle2 size={18} />
+        <div className="sidebar-sheet-connected">
+          <CheckCircle2 size={16} />
           <div>
-            <strong>{status.spreadsheetTitle}</strong>
-            <div>
-              The memorandum and tracking worksheets will be updated together before the document is downloaded.
-            </div>
+            <strong>{status.spreadsheetTitle || "Google Sheet"}</strong>
+            <small>
+              {status.mode === "oauth"
+                ? "Connected by you"
+                : "Existing connection"}
+            </small>
           </div>
         </div>
-      ) : (
-        !loading && (
-          <div className="notice error">
-            <TriangleAlert size={18} />
-            <div>
-              <strong>Connection requires attention</strong>
-              <div>{status?.error || "Required worksheets are missing."}</div>
-              {status?.missingSheets?.length ? (
-                <div>Missing: {status.missingSheets.join(", ")}</div>
-              ) : null}
-            </div>
-          </div>
-        )
-      )}
+      ) : !loading && status?.error ? (
+        <div className="sidebar-sheet-error">
+          <TriangleAlert size={15} />
+          <span>{status.error}</span>
+        </div>
+      ) : null}
 
-      <button
-        type="button"
-        className="btn btn-secondary"
-        onClick={() => void checkConnection()}
-        disabled={loading}
-      >
-        <RefreshCw size={17} />
-        {loading ? "Checking…" : "Recheck connection"}
-      </button>
+      <div className="sidebar-sheet-actions">
+        <a href="/connect-sheet" className="sidebar-sheet-connect">
+          <Link2 size={15} />
+          {status?.connected && status.mode === "oauth"
+            ? "Change sheet"
+            : status?.connected
+              ? "Connect your own sheet"
+              : "Connect sheet"}
+        </a>
+
+        <button
+          type="button"
+          className="sidebar-sheet-recheck"
+          onClick={() => void checkConnection()}
+          disabled={loading}
+          aria-label="Recheck Google Sheet connection"
+        >
+          <RefreshCw size={15} className={loading ? "spin" : ""} />
+        </button>
+      </div>
     </div>
   );
 }

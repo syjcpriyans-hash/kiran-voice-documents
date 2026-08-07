@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import {
   batchUpdateSpreadsheet,
   findSheet,
   getSheetValues,
-  getSpreadsheetMetadata,
   quoteSheetName,
 } from "@/lib/google-sheets";
 import { lookupReturnTarget, SYSTEM_LOG } from "@/lib/return-workflow";
+import { resolveConnectedSheets } from "@/lib/mapped-sheet";
 import {
   dateToGoogleSerial,
   groupContiguousRows,
@@ -27,6 +27,13 @@ const requestSchema = z.object({
   confirmPerson: z.string().min(1).max(150),
 });
 
+type Input = {
+  requestId: string;
+  reference: string;
+  returnDate: string;
+  confirmPerson: string;
+};
+
 function indiaDateTime(): { date: string; time: string; iso: string } {
   const now = new Date();
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -39,23 +46,31 @@ function indiaDateTime(): { date: string; time: string; iso: string } {
     second: "2-digit",
     hourCycle: "h23",
   }).formatToParts(now);
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || "";
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value || "";
   const date = `${get("year")}-${get("month")}-${get("day")}`;
   const time = `${get("hour")}:${get("minute")}:${get("second")}`;
+
   return { date, time, iso: `${date}T${time}+05:30` };
 }
 
 export async function POST(request: Request) {
   try {
-    const input = requestSchema.parse(await request.json());
+    const input = requestSchema.parse(await request.json()) as Input;
     const target = await lookupReturnTarget(input.reference);
 
     if (target.voided) {
-      throw new Error(`Memo ${target.memoNumber} is void and cannot be marked returned.`);
+      throw new Error(
+        `Memorandum ${target.memoNumber} is void and cannot be marked returned.`,
+      );
     }
 
     if (!target.canUpdateSheet1 || !target.sheet1Rows.length) {
-      throw new Error(target.warning || "A safe SHEET1 link was not found. Use the official SHEET1 memo number.");
+      throw new Error(
+        target.warning ||
+          "A safe tracking-row link was not found. Use the official memorandum number.",
+      );
     }
 
     if (target.alreadyReturned) {
@@ -63,25 +78,32 @@ export async function POST(request: Request) {
         result: {
           ...target,
           isNew: false,
-          message: `Memo ${target.memoNumber} was already marked returned${target.returnDate ? ` on ${target.returnDate}` : ""}.`,
+          message: `Memorandum ${target.memoNumber} was already marked returned${
+            target.returnDate ? ` on ${target.returnDate}` : ""
+          }.`,
         },
       });
     }
 
-    const metadata = await getSpreadsheetMetadata();
-    const sheet1 = findSheet(metadata, "SHEET1");
-    const memo = findSheet(metadata, "MEMO");
-    const log = findSheet(metadata, SYSTEM_LOG);
-    if (!sheet1 || !memo) throw new Error("MEMO or SHEET1 is missing from the Google Sheet.");
+    const connected = await resolveConnectedSheets();
+    const trackingColumns = connected.config.tracking.columns;
+    const memoColumns = connected.config.memo.columns;
+    const log = findSheet(connected.metadata, SYSTEM_LOG);
 
     const logRows = log
-      ? await getSheetValues(`${quoteSheetName(SYSTEM_LOG)}!A1:S5000`, { valueRenderOption: "FORMATTED_VALUE" })
+      ? await getSheetValues(`${quoteSheetName(SYSTEM_LOG)}!A1:S10000`, {
+          valueRenderOption: "FORMATTED_VALUE",
+        })
       : [];
 
     for (let index = 1; index < logRows.length; index += 1) {
       if (String(logRows[index]?.[14] || "").trim() === input.requestId) {
         return NextResponse.json({
-          result: { ...target, isNew: false, message: `Memo ${target.memoNumber} return update was already processed.` },
+          result: {
+            ...target,
+            isNew: false,
+            message: `Memorandum ${target.memoNumber} return update was already processed.`,
+          },
         });
       }
     }
@@ -91,9 +113,6 @@ export async function POST(request: Request) {
     const confirmationSerial = dateToGoogleSerial(confirmation.date);
     const requests: Record<string, unknown>[] = [];
 
-    // Older _SYSTEM_LOG sheets were originally created with only A:K.
-    // Return and void audit fields use columns L:S, so expand the hidden
-    // sheet before any updateCells request references those columns.
     if (log) {
       const currentColumnCount = log.gridProperties?.columnCount || 0;
       if (currentColumnCount < LOG_COLUMNS) {
@@ -106,8 +125,10 @@ export async function POST(request: Request) {
         });
       }
 
-      const expectedReturnHeader = "RETURN STATUS";
-      if (String(logRows[0]?.[11] || "").trim().toUpperCase() !== expectedReturnHeader) {
+      if (
+        String(logRows[0]?.[11] || "").trim().toUpperCase() !==
+        "RETURN STATUS"
+      ) {
         requests.push(
           updateRangeRequest(log.sheetId, 1, 11, [[
             "RETURN STATUS",
@@ -125,31 +146,92 @@ export async function POST(request: Request) {
 
     for (const group of groupContiguousRows(target.sheet1Rows)) {
       const count = group.end - group.start + 1;
+
       requests.push(
-        updateRangeRequest(sheet1.sheetId, group.start, 1, Array.from({ length: count }, () => [returnedSerial])),
         updateRangeRequest(
-          sheet1.sheetId,
+          connected.tracking.sheetId,
           group.start,
-          13,
-          Array.from({ length: count }, () => [input.confirmPerson, confirmationSerial, confirmation.time]),
+          trackingColumns.returnDate,
+          Array.from({ length: count }, () => [returnedSerial]),
         ),
-        numberFormatRequest(sheet1.sheetId, group.start, count, 1, "DATE", "dd-mmm-yy"),
-        numberFormatRequest(sheet1.sheetId, group.start, count, 14, "DATE", "dd-mmm-yy"),
+        numberFormatRequest(
+          connected.tracking.sheetId,
+          group.start,
+          count,
+          trackingColumns.returnDate,
+          "DATE",
+          "dd-mmm-yy",
+        ),
       );
+
+      if (Number.isInteger(trackingColumns.confirmPerson)) {
+        requests.push(
+          updateRangeRequest(
+            connected.tracking.sheetId,
+            group.start,
+            trackingColumns.confirmPerson as number,
+            Array.from({ length: count }, () => [input.confirmPerson]),
+          ),
+        );
+      }
+
+      if (Number.isInteger(trackingColumns.confirmDate)) {
+        requests.push(
+          updateRangeRequest(
+            connected.tracking.sheetId,
+            group.start,
+            trackingColumns.confirmDate as number,
+            Array.from({ length: count }, () => [confirmationSerial]),
+          ),
+          numberFormatRequest(
+            connected.tracking.sheetId,
+            group.start,
+            count,
+            trackingColumns.confirmDate as number,
+            "DATE",
+            "dd-mmm-yy",
+          ),
+        );
+      }
+
+      if (Number.isInteger(trackingColumns.confirmTime)) {
+        requests.push(
+          updateRangeRequest(
+            connected.tracking.sheetId,
+            group.start,
+            trackingColumns.confirmTime as number,
+            Array.from({ length: count }, () => [confirmation.time]),
+          ),
+        );
+      }
     }
 
-    if (target.canUpdateMemo && target.memoRows.length) {
+    if (
+      target.canUpdateMemo &&
+      target.memoRows.length &&
+      Number.isInteger(memoColumns.status)
+    ) {
       for (const group of groupContiguousRows(target.memoRows)) {
         const count = group.end - group.start + 1;
         requests.push(
-          updateRangeRequest(memo.sheetId, group.start, 11, Array.from({ length: count }, () => ["RETURNED"])),
+          updateRangeRequest(
+            connected.memo.sheetId,
+            group.start,
+            memoColumns.status as number,
+            Array.from({ length: count }, () => ["RETURNED"]),
+          ),
         );
       }
     }
 
     if (log && target.logRow) {
       requests.push(
-        updateRangeRequest(log.sheetId, target.logRow, 11, [["RETURNED", confirmation.iso, input.confirmPerson, input.requestId]]),
+        updateRangeRequest(log.sheetId, target.logRow, 11, [[
+          "RETURNED",
+          confirmation.iso,
+          input.confirmPerson,
+          input.requestId,
+        ]]),
       );
     }
 
@@ -162,15 +244,29 @@ export async function POST(request: Request) {
         returnDate: input.returnDate,
         confirmPerson: input.confirmPerson,
         isNew: true,
-        message: `Memo ${target.memoNumber} was marked returned in SHEET1${target.canUpdateMemo ? " and MEMO" : ""}.`,
+        message: `Memorandum ${target.memoNumber} was marked returned in the tracking worksheet${
+          target.canUpdateMemo ? " and memorandum worksheet" : ""
+        }.`,
       },
     });
   } catch (cause) {
-    if (cause instanceof z.ZodError) {
-      return NextResponse.json({ error: cause.issues[0]?.message || "Return details are incomplete." }, { status: 400 });
+    if (cause instanceof ZodError) {
+      return NextResponse.json(
+        {
+          error:
+            cause.issues[0]?.message || "Return details are incomplete.",
+        },
+        { status: 400 },
+      );
     }
+
     return NextResponse.json(
-      { error: cause instanceof Error ? cause.message : "The return update failed." },
+      {
+        error:
+          cause instanceof Error
+            ? cause.message
+            : "The return update failed.",
+      },
       { status: 500 },
     );
   }
