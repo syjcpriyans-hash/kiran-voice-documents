@@ -116,6 +116,23 @@ function cleanText(value: string | null | undefined): string {
   return String(value || "").trim().replace(/\s+/g, " ");
 }
 
+function normalizeRecipientName(
+  value: string | null | undefined,
+  recipientType: RecipientType,
+): string {
+  let name = cleanText(value);
+  if (!name || recipientType === "Other") return name;
+
+  const escapedType = recipientType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  name = name
+    .replace(new RegExp(`\\s*\\(${escapedType}\\)\\s*$`, "i"), "")
+    .replace(new RegExp(`\\s*[-–—,:]\\s*${escapedType}\\s*$`, "i"), "")
+    .trim();
+
+  return name;
+}
+
 function compactCode(value: string): string {
   return cleanText(value)
     .toUpperCase()
@@ -176,7 +193,6 @@ function normalizeSize(value: string): string {
 
   return input.replace(/\s+/g, "");
 }
-
 
 function parseCombinedDescription(value: string): { shape: string; quality: string; colour: string } {
   const input = cleanText(value).toUpperCase();
@@ -316,14 +332,17 @@ export function normalizeCreateMemorandumExtraction(
     });
   });
 
-  if (!cleanText(extraction.recipientName)) {
+  const recipientType = extraction.recipientType as RecipientType;
+  const recipientName = normalizeRecipientName(extraction.recipientName, recipientType);
+
+  if (!recipientName) {
     warnings.push("Recipient name is missing or unclear.");
   }
 
   return {
     draft: {
-      recipientName: cleanText(extraction.recipientName),
-      recipientType: extraction.recipientType as RecipientType,
+      recipientName,
+      recipientType,
       through: cleanText(extraction.through),
       date: cleanText(extraction.date),
       items,
@@ -370,6 +389,7 @@ export function buildAssistantExtractionPrompt(options: {
     "- If a field is ambiguous, leave it empty or null, add it to uncertainFields, and add a warning. Do not guess.",
     "- Normalize size to a fraction such as 1/4 or 1/10.",
     "- Return shape, quality, and colour as separate fields. Do not combine them in description text.",
+    "- recipientName must contain only the recipient's name. Never append Broker, Customer, Other, or any recipient-type label to recipientName; put that classification only in recipientType.",
     "- Examples: P E becomes PE; V V S one becomes VVS-1; one by four becomes 1/4; thirty-seven point three seven becomes 37.37.",
     "- Return no more than eight usable items. Still identify extra items so the application can warn the user.",
     "",

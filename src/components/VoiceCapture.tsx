@@ -23,6 +23,7 @@ type VoiceCaptureProps = {
 };
 
 type AudioContextConstructor = typeof AudioContext;
+type ProcessingKind = "text" | "audio" | null;
 
 declare global {
   interface Window {
@@ -123,6 +124,7 @@ export function VoiceCapture({
   const [language, setLanguage] = useState("auto-mixed");
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [processingKind, setProcessingKind] = useState<ProcessingKind>(null);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
 
@@ -231,6 +233,7 @@ export function VoiceCapture({
 
     setRecording(false);
     setProcessing(true);
+    setProcessingKind("audio");
     setError("");
     clearTimers();
 
@@ -271,26 +274,31 @@ export function VoiceCapture({
       );
     } finally {
       onAudioFinished?.();
+      setProcessingKind(null);
       setProcessing(false);
     }
   }
 
   async function interpretTypedText() {
-    if (!transcript.trim()) return;
+    const instruction = transcript.trim();
+    if (!instruction) return;
 
     setProcessing(true);
+    setProcessingKind("text");
     setError("");
+    setTranscript("");
 
     try {
-      await onInterpretText(transcript.trim());
-      setTranscript("");
+      await onInterpretText(instruction);
     } catch (cause) {
+      setTranscript(instruction);
       setError(
         cause instanceof Error
           ? cause.message
           : "The instruction could not be interpreted.",
       );
     } finally {
+      setProcessingKind(null);
       setProcessing(false);
     }
   }
@@ -310,6 +318,19 @@ export function VoiceCapture({
         </div>
       )}
 
+      {processingKind === "text" && (
+        <div className="composer-header composer-header-status-only" aria-live="polite">
+          <span className="composer-status">
+            Thinking
+            <span className="thinking-dots" aria-label="Kiran Assistant is thinking">
+              <i />
+              <i />
+              <i />
+            </span>
+          </span>
+        </div>
+      )}
+
       {!supported && (
         <div className="notice error composer-notice">
           Use the latest Google Chrome and allow microphone access. Typed instructions still work.
@@ -317,7 +338,6 @@ export function VoiceCapture({
       )}
 
       {error && <div className="notice error composer-notice">{error}</div>}
-
 
       <textarea
         className="transcript assistant-input"
@@ -332,7 +352,7 @@ export function VoiceCapture({
           }
         }}
         placeholder="Write a message to Kiran Assistant…"
-        disabled={recording}
+        disabled={recording || processing}
         rows={3}
       />
 
