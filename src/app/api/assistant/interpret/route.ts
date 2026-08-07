@@ -28,6 +28,20 @@ function indiaDate(): string {
   }).format(new Date());
 }
 
+function cleanResolvedRecipientName(
+  name: string,
+  recipientType: "Broker" | "Customer" | "Other",
+): string {
+  const cleaned = name.trim();
+  if (recipientType === "Other") return cleaned;
+
+  const type = recipientType === "Broker" ? "BROKER" : "CUSTOMER";
+
+  return cleaned
+    .replace(new RegExp(`\\s*\\(${type}\\)\\s*$`, "i"), "")
+    .trim();
+}
+
 function resolveConfirmationPerson(
   input: string,
   operators: string[],
@@ -87,9 +101,17 @@ export async function POST(request: Request) {
       const normalized = normalizeCreateMemorandumExtraction(parsed);
       const resolved = await resolveInterpretedDraft(normalized.draft);
 
+      const draft = {
+        ...resolved.draft,
+        recipientName: cleanResolvedRecipientName(
+          resolved.draft.recipientName,
+          resolved.draft.recipientType,
+        ),
+      };
+
       return NextResponse.json({
         action: parsed.action,
-        draft: resolved.draft,
+        draft,
         warnings: [
           ...new Set([
             ...normalized.warnings,
